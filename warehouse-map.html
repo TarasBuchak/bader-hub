@@ -58,33 +58,61 @@
 
         /* Print Styles */
         @media print {
-            body { background-color: white !important; padding: 0; margin: 0; color: black !important; }
-            .no-print { display: none !important; }
-            .page-break { page-break-before: always; break-before: page; }
+            /* Регулювання заповнення по висоті: якщо 6 рядів НЕ вміщуються —
+               зменшіть --cell-h та --head-h; якщо лишається білий низ — збільшуйте. */
+            :root {
+                --cell-h: 11.5mm;   /* висота комірки */
+                --head-h: 6mm;   /* висота рядка номерів позицій */
+                --row-gap: 5mm;    /* відступ між рядами */
+            }
+
+            body { background: white !important; margin: 0 !important; padding: 0 !important; color: black !important; }
+            main { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+
+            .no-print, #tooltip, header { display: none !important; }
+
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .shadow-sm, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
+            .shadow-sm, .shadow-xl, .shadow-2xl, .shadow-lg { box-shadow: none !important; }
             .tooltip { display: none !important; }
             .overflow-x-auto { overflow: visible !important; }
-            
-            #mapContainer { zoom: 95%; width: 100% !important; max-width: none !important; background: white !important;}
-            .bg-white, .dark\:bg-slate-800 { background-color: white !important; border: none !important; padding: 0 !important; }
-            
-            .aisle-block { 
-                page-break-inside: avoid; break-inside: avoid; 
-                margin-bottom: 12px !important; width: 100% !important;
-                background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important;
+
+            .bg-white, .dark\:bg-slate-800 { background: white !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+
+            /* Вся ширина аркуша, без масштабування */
+            #mapContainer { width: 100% !important; max-width: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; }
+            #mapContainer > div { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+
+            .aisle-block {
+                width: 100% !important; max-width: 100% !important;
+                padding: 1.5mm !important; margin-bottom: var(--row-gap) !important;
+                page-break-inside: avoid !important; break-inside: avoid !important;
             }
-            .print-break-after { display: block; page-break-after: always; break-after: page; margin: 0; padding: 0; border: none; height: 0; }
-            
+
+            /* Підпис "Ярус N" приховати */
+            .aisle-block .ml-2 { display: none !important; }
+
+            /* Ліва буква ряду */
+            .aisle-block .w-10 { width: 14mm !important; flex-shrink: 0 !important; font-size: 20px !important; }
+
+            /* Рядки на всю ширину */
+            .aisle-block .flex.gap-1 { width: 100% !important; }
+            .aisle-block .w-7 { flex: 1 1 0% !important; width: auto !important; min-width: 0 !important; height: var(--cell-h) !important; font-size: 14px !important; }
+            .aisle-block .h-5 { flex: 1 1 0% !important; width: auto !important; min-width: 0 !important; height: var(--head-h) !important; font-size: 10px !important; }
+
+            /* Рівно 6 рядів на сторінку */
+            .print-break-after { display: block !important; page-break-after: always !important; break-after: page !important; margin: 0; padding: 0; border: none; height: 0; }
+
             .print-empty { background-color: #ffffff !important; border: 1px dashed #cbd5e1 !important; color: #e2e8f0 !important; }
             .print-one { background-color: #f1f5f9 !important; border: 1px solid #64748b !important; color: #334155 !important; }
             .print-two { background-color: #cbd5e1 !important; border: 1px solid #334155 !important; color: #0f172a !important; }
             .print-over { background-color: #64748b !important; border: 2px solid #0f172a !important; color: #ffffff !important; font-weight: 900 !important; }
             .print-nonliquid { background-color: #1e293b !important; border: 2px solid #000000 !important; color: #ffffff !important; font-weight: 900 !important; }
+
+            @page { size: A4 landscape; margin: 4mm; }
         }
-        @page { size: landscape; margin: 0.2cm; }
         .print-break-after { display: none; }
     </style>
+<base target="_blank">
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen font-sans transition-colors duration-200">
 
@@ -889,7 +917,7 @@
                     aisleContainer.appendChild(aisleBlock);
 
                     // Page break exactly every 6 rows as requested for PDF
-                    if (globalAisleCount % 6 === 0) {
+                    if (globalAisleCount % 6 === 0 && globalAisleCount > 0) {
                         const breakDiv = document.createElement('div');
                         breakDiv.className = 'print-break-after';
                         aisleContainer.appendChild(breakDiv);
