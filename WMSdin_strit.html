@@ -85,7 +85,6 @@ input,select{background:var(--card);color:var(--fg);border:1px solid var(--bd);b
 <script>
 const $=s=>document.querySelector(s),pad=n=>String(n).padStart(2,'0'),P=n=>822000+n;
 const LS='wms_state_v1';
-// ---- Конфіг секцій (план артикулів по комірках) ----
 const CFG=[
  {id:'1Q',wh:'DIN',pos:[1,37],buf:p=>p>=33,plan:p=>P(p<=6?813:p<=12?812:p<=17?811:p<=22?810:809)},
  {id:'1E',wh:'DIN',pos:[17,24],plan:()=>P(808)},
@@ -93,7 +92,10 @@ const CFG=[
  {id:'T',wh:'STRIT',pos:[1,16],buf:p=>p<=8,plan:p=>P(p>=13?802:871)},
  {id:'1F',wh:'STRIT',pos:[17,24],plan:p=>P(p>=21?803:872)}
 ];
-let S=(()=>{try{return JSON.parse(localStorage.getItem(LS))}catch(e){}})()||{stock:{},pallets:{},itasks:[],log:[]};
+let S=(()=>{try{return JSON.parse(localStorage.getItem(LS))}catch(e){}})()||{rows:[],stock:{},pallets:{},itasks:[],log:[]};
+function rowsFromMaps(o){const r=[];['stock','pallets'].forEach(k=>Object.keys(o[k]||{}).forEach(c=>o[k][c].forEach(i=>r.push({code:c,art:i.art,date:i.date}))));return r}
+function derive(){S.stock={};S.pallets={};S.rows.forEach(r=>{const o=/^P\d{1,2}$/.test(r.code)?S.pallets:S.stock;(o[r.code]=o[r.code]||[]).push({art:r.art,date:r.date})})}
+if(!S.rows)S.rows=rowsFromMaps(S);
 let R={cells:[],tasks:[],art:{}},Q='',charts={},tf='gen';
 const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
 const log=m=>{S.log.unshift({t:new Date().toLocaleString('uk-UA'),m});S.log=S.log.slice(0,300)};
@@ -106,7 +108,82 @@ function toDate(v){
   const s=String(v).trim();let m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);if(m)return pad(m[1])+'.'+pad(m[2])+'.'+m[3];
   m=s.match(/^(\d{4})-(\d\d)-(\d\d)/);return m?m[3]+'.'+m[2]+'.'+m[1]:null}
 
-// ---- Перерахунок складу + FIFO + задачі ----
+function vbaTasks(rows){
+  const pad=n=>String(n).padStart(2,'0');
+  const nl=s=>String(s==null?'':s).trim().toUpperCase().replace(/[ \t]/g,'');
+  const isPal=s=>{s=nl(s);return s.length>=2&&s[0]==='P'&&/^\d+$/.test(s.slice(1))};
+  const dn=d=>{const p=String(d||'').trim().split('.');return p.length===3&&p.every(x=>x!==''&&!isNaN(x))?+p[2]*10000+ +p[1]*100+ +p[0]:99999999};
+  const inp=new Map();
+  rows.forEach(r=>{const c=nl(r.code),a=String(r.art==null?'':r.art).trim();if(c&&a){if(!inp.has(c))inp.set(c,[]);inp.get(c).push(a)}});
+  const planDIN=()=>{const m=new Map();
+    for(let l=1;l<=4;l++)for(let p=1;p<=32;p++)m.set('1Q'+l+pad(p)+'A',p<=6?'822813':p<=12?'822812':p<=17?'822811':p<=22?'822810':'822809');
+    for(let l=1;l<=4;l++)for(let p=17;p<=24;p++)m.set('1E'+l+pad(p)+'A','822808');return m};
+  const planSTRIT=()=>{const m=new Map();
+    for(let l=1;l<=4;l++)for(let p=1;p<=16;p++){const b=p<=4?[806,875]:p<=8?[873,804]:p<=12?[874,805]:[876,807];m.set('S'+l+pad(p)+'A',String(822000+(l<=2?b[0]:b[1])))}
+    for(let l=1;l<=4;l++)for(let p=9;p<=16;p++)m.set('T'+l+pad(p)+'A',p<=12?'822871':'822802');
+    for(let l=1;l<=4;l++)for(let p=17;p<=24;p++)m.set('1F'+l+pad(p)+'A',p<=20?'822872':'822803');return m};
+  const fifoBuild=plan=>{
+    const tmp=new Map();
+    rows.forEach(r=>{const c=nl(r.code),a=String(r.art==null?'':r.art).trim();
+      if(c&&a&&!plan.has(c)){if(!tmp.has(a))tmp.set(a,[]);tmp.get(a).push(c+'|'+(r.date||''))}});
+    const d=new Map();
+    tmp.forEach((arr,a)=>{
+      if(arr.length>1)for(let i=0;i<arr.length-1;i++)for(let j=i+1;j<arr.length;j++){
+        const x=arr[i].split('|'),y=arr[j].split('|'),p1=isPal(x[0]),p2=isPal(y[0]);let sw=false;
+        if(p1!==p2){if(!p1&&p2)sw=true}else if(dn(x[1])>dn(y[1]))sw=true;
+        if(sw){const t=arr[i];arr[i]=arr[j];arr[j]=t}}
+      d.set(a,arr)});
+    return d};
+  const inv=new Set(),BUF='ВІЛЬНЕ МІСЦЕ (БУФЕР)';
+  const collect=(plan,bc)=>{
+    const fifo=fifoBuild(plan),empt=[],wrong=new Map(),proc=new Set(),res=new Set(),out=[];
+    const addE=(l,a)=>{l=nl(l);a=String(a).trim();if(l&&a)empt.push([l,a])};
+    plan.forEach((pa,loc)=>{const e=inp.get(loc);
+      if(e&&e.length>0){const a=e[0];if(a==='')addE(loc,pa);if(a!==''&&a!==pa)wrong.set(loc,[a,pa])}else addE(loc,pa)});
+    inp.forEach((arr,loc)=>{if(!isPal(loc)&&arr.length>1){inv.add(loc);
+      out.push({from:loc,art:arr[1],date:'-',to:BUF,type:'Переповнення комірки',pr:1,act:'ВИВЕЗТИ ЗАЙВЕ ('+(arr.length-1)+' шт.)'})}});
+    for(const [l1,w1] of wrong){
+      if(proc.has(l1))continue;const a1=w1[0],p1=w1[1];let sw=false;
+      for(const [l2,w2] of wrong){
+        if(l1!==l2&&!proc.has(l2)&&a1===w2[1]&&w2[0]===p1){
+          out.push({from:l1,art:a1,date:'-',to:l2,type:'Пересорт',pr:1,act:'ПОМІНЯТИ МІСЦЯМИ',art2:w2[0]});
+          inv.add(l1);inv.add(l2);proc.add(l1);proc.add(l2);sw=true;break}}
+      if(!sw){let f=false;
+        for(let k=0;k<empt.length;k++){const tl=empt[k][0],ra=empt[k][1];
+          if(!res.has(tl)&&a1===ra){
+            out.push({from:l1,art:a1,date:'-',to:tl,type:'Неправильне місце > Основна',pr:1,act:'ПЕРЕНЕСТИ В ПРАВИЛЬНУ КОМІРКУ'});
+            inv.add(l1);inv.add(tl);res.add(tl);proc.add(l1);addE(l1,p1);f=true;break}}
+        if(!f){out.push({from:l1,art:a1,date:'-',to:BUF,type:'Помилкове розміщення',pr:1,act:'ВИВЕЗТИ В БУФЕР'});
+          inv.add(l1);proc.add(l1);addE(l1,p1)}}}
+    for(let k=0;k<empt.length;k++){
+      const tl=empt[k][0],ra=empt[k][1];if(res.has(tl))continue;
+      const arr=fifo.get(ra);if(!arr)continue;
+      for(let fi=0;fi<arr.length;fi++){
+        const pr=arr[fi].split('|'),sl=nl(pr[0]),e=inp.get(sl);
+        if(e&&e.some(x=>x===ra)){
+          inv.add(sl);inv.add(tl);
+          out.push({from:sl,art:ra,date:pr[1],to:tl,type:'Буфер/Палета > Основна',pr:2,act:'ПЕРЕНЕСТИ'});
+          arr.splice(fi,1);if(!arr.length)fifo.delete(ra);break}}}
+    for(let l=1;l<=4;l++)for(let p=bc.p0;p<=bc.p1;p++){
+      const bl=bc.pre+l+pad(p)+'A',e=inp.get(bl),empty=!(e&&e.length>0&&e[0]!=='');
+      if(empty&&!res.has(bl)){
+        let od=999999999,ca='',cl='',ad='';
+        bc.arts.forEach(art=>{const arr=fifo.get(art);
+          if(arr&&arr.length){const pr=arr[0].split('|'),sl=nl(pr[0]),n=dn(pr[1]);
+            if(isPal(sl)&&n<od){od=n;ca=art;cl=sl;ad=pr[1]}}});
+        if(ca){
+          out.push({from:cl,art:ca,date:ad,to:bl,type:bc.type,pr:3,act:'ПОПОВНИТИ БУФЕР'});
+          inv.add(cl);inv.add(bl);res.add(bl);
+          const arr=fifo.get(ca);arr.shift();if(!arr.length)fifo.delete(ca)}}}
+    return out};
+  const all=collect(planDIN(),{pre:'1Q',p0:33,p1:37,arts:['822813','822812','822811','822810','822809'],type:'Палета > Буфер DIN'})
+    .concat(collect(planSTRIT(),{pre:'T',p0:1,p1:8,arts:['822876','822874','822873','822806','822871','822807','822805','822804','822875','822802'],type:'Палета > Буфер STRIT'}));
+  const num=x=>/^\d+(\.\d+)?$/.test(String(x))?+x:null;
+  all.map((t,i)=>[t,i]).sort((a,b)=>{const x=num(a[0].art),y=num(b[0].art);
+    const c=x!=null&&y!=null?x-y:String(a[0].art).localeCompare(String(b[0].art));return c||a[1]-b[1]}).forEach((v,i)=>all[i]=v[0]);
+  return {tasks:all,inv};
+}
+
 function recalc(){
   const cells=[],map={};
   const add=(c,l,p)=>{const code=c.id+l+pad(p)+'A',buf=!!(c.buf&&c.buf(p)),items=S.stock[code]||[];
@@ -115,37 +192,19 @@ function recalc(){
   Object.keys(S.stock).forEach(k=>{if(map[k])return;const c=CFG.find(c=>k.startsWith(c.id)&&/^\d{3}A$/.test(k.slice(c.id.length)));
     if(c)add(c,+k[c.id.length],+k.slice(c.id.length+1,-1))});
   const pal=[];Object.keys(S.pallets).forEach(p=>S.pallets[p].forEach(i=>pal.push({code:p,art:i.art,date:i.date})));
-  // статистика артикулів
   const A={};const g=a=>A[a]||(A[a]={main:0,buf:0,pal:0,minMain:99999999,minOther:99999999,plan:0});
   cells.forEach(c=>c.items.forEach(i=>{const a=g(i.art),d=dk(i.date);
     if(c.buf){a.buf++;a.minOther=Math.min(a.minOther,d)}else{a.main++;a.minMain=Math.min(a.minMain,d)}}));
   pal.forEach(i=>{const a=g(i.art);a.pal++;a.minOther=Math.min(a.minOther,dk(i.date))});
   Object.values(A).forEach(a=>a.risk=a.main>0&&a.minOther<a.minMain);
-  // задачі
-  const T=[],mk=(from,art,date,to,type,pr)=>T.push({from,art,date,to,type,pr});
-  const fb=cells.filter(c=>c.buf&&!c.items.length);const tb=()=>{const c=fb.shift();return c?c.code:'—'};
-  let me=cells.filter(c=>!c.buf&&!c.items.length);
-  cells.filter(c=>!c.buf&&c.items.length&&!eq(c.art,c.plan)).forEach(c=>{
-    const k=me.findIndex(x=>eq(x.plan,c.art));
-    if(k>=0){mk(c.code,c.art,c.date,me[k].code,'Неправильне місце',1);me.splice(k,1)}
-    else mk(c.code,c.art,c.date,tb(),'Пересорт',1)});
-  cells.filter(c=>c.items.length>1).forEach(c=>c.items.slice(1).forEach(i=>mk(c.code,i.art,i.date,tb(),'Переповнення комірки',1)));
-  const src=[];cells.forEach(c=>{if(c.buf)c.items.forEach(i=>src.push({from:c.code,art:i.art,date:i.date}))});
-  pal.forEach(i=>src.push({from:i.code,art:i.art,date:i.date,pallet:1}));
-  src.sort((a,b)=>dk(a.date)-dk(b.date));
-  me.forEach(c=>{const s=src.find(x=>!x.used&&eq(x.art,c.plan));if(s){s.used=1;mk(s.from,s.art,s.date,c.code,'Поповнення основної комірки',2)}});
-  src.filter(s=>!s.used&&s.pallet&&A[s.art]&&A[s.art].main>0&&dk(s.date)<A[s.art].minMain&&fb.length)
-     .forEach(s=>mk(s.from,s.art,s.date,tb(),'Поповнення буфера',3));
-  T.sort((a,b)=>String(a.art).localeCompare(String(b.art))||dk(a.date)-dk(b.date));
-  const tgt=new Set(T.map(t=>t.to));
-  cells.forEach(c=>{c.st=c.buf?(c.items.length?'buf':'bufe'):c.items.length?(eq(c.art,c.plan)?'ok':'bad'):(tgt.has(c.code)?'task':'emp')});
-  R={cells,map,tasks:T,art:A,pal};
+  const V=vbaTasks(S.rows||[]),T=V.tasks,inv=V.inv;
+  cells.forEach(c=>{c.st=c.buf?(c.items.length?'buf':'bufe'):c.items.length?(eq(c.art,c.plan)?'ok':'bad'):'emp';if(inv.has(c.code)&&c.st!=='bad')c.st='task'});
+  R={cells,map,tasks:T,art:A,pal,inv};
 }
 const cls={ok:'c-ok',bad:'c-bad',buf:'c-buf',bufe:'c-bufe',task:'c-task',emp:'c-emp'};
 const stTxt={ok:'Правильний артикул у своїй комірці',bad:'Неправильний артикул',buf:'Буфер (зайнято)',bufe:'Буфер (вільно)',task:'Порожня, є задача на переміщення',emp:'Порожня комірка'};
 const hit=c=>Q&&(c.code.includes(Q.toUpperCase())||c.items.some(i=>String(i.art).includes(Q)));
 
-// ---- Рендер ----
 function renderAll(){recalc();dash();map('din','DIN');map('strit','STRIT');pals();tasks();an();search()}
 function ch(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($('#'+id),cfg)}
 function dash(){
@@ -153,9 +212,9 @@ function dash(){
   const w=n=>{const a=R.cells.filter(c=>c.wh===n);const o=a.filter(c=>c.items.length).length;return{t:a.length,o,f:a.length-o}};
   const d=w('DIN'),s=w('STRIT'),pl=Object.keys(S.pallets).filter(k=>S.pallets[k].length).length;
   const k=[['Заповненість DIN',(d.o/d.t*100||0).toFixed(1)+'%',d.o+' / '+d.t],['Заповненість STRIT',(s.o/s.t*100||0).toFixed(1)+'%',s.o+' / '+s.t],
-   ['Кількість палет',pl,R.pal.length+' од. на палетах'],['Вільні місця',d.f+s.f,'DIN '+d.f+' · STRIT '+s.f],['Активні задачі',R.tasks.length,'FIFO ризиків: '+Object.values(R.art).filter(a=>a.risk).length]];
+    ['Кількість палет',pl,R.pal.length+' од. на палетах'],['Вільні місця',d.f+s.f,'DIN '+d.f+' · STRIT '+s.f],['Активні задачі',R.tasks.length,'FIFO ризиків: '+Object.values(R.art).filter(a=>a.risk).length]];
   $('#kpi').innerHTML=k.map(x=>`<div class="card"><div class="text-xs mut">${x[0]}</div><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs mut">${x[2]}</div></div>`).join('');
-  $('#empty').textContent=Object.keys(S.stock).length?'':'Дані відсутні. Натисніть «Завантажити XLSX/XLSM» і оберіть файл WMS.';
+  $('#empty').textContent=Object.keys(S.stock).length?'':'Дані відсутні. Натисніть «Встановлення даних» і оберіть файл WMS.';
   const secs=CFG.map(c=>c.id),oc=secs.map(i=>R.cells.filter(c=>c.sec===i&&c.items.length).length),fr=secs.map(i=>R.cells.filter(c=>c.sec===i&&!c.items.length).length);
   ch('c1',{type:'bar',data:{labels:secs,datasets:[{label:'Зайнято',data:oc,backgroundColor:'#2563eb'},{label:'Вільно',data:fr,backgroundColor:'#94a3b8'}]},options:{scales:{x:{stacked:true},y:{stacked:true}}}});
   const top=Object.entries(R.art).map(([a,v])=>[a,v.main+v.buf+v.pal]).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -180,7 +239,7 @@ function pals(){
   for(let i=1;i<=41;i++){const c='P'+pad(i),it=S.pallets[c]||[],by={};
     it.forEach(x=>{const b=by[x.art]||(by[x.art]={n:0,m:99999999,d:null});b.n++;if(dk(x.date)<b.m){b.m=dk(x.date);b.d=x.date}});
     const fifo=it.length?it.reduce((a,x)=>dk(x.date)<dk(a)?x.date:a,it[0].date):'—';
-    h+=`<div class="pal ${Q&&(c.includes(Q.toUpperCase())||it.some(x=>String(x.art).includes(Q)))?'hl':''}" data-p="${c}"><b>${c}</b> <span class="text-xs mut">${it.length} од.</span><div class="text-xs mut">FIFO: ${fifo||'—'}</div><div>`+
+    h+=`<div class="pal ${R.inv&&R.inv.has(c)?'c-task':''} ${Q&&(c.includes(Q.toUpperCase())||it.some(x=>String(x.art).includes(Q)))?'hl':''}" data-p="${c}"><b>${c}</b> <span class="text-xs mut">${it.length} од.</span><div class="text-xs mut">FIFO: ${fifo||'—'}</div><div>`+
       Object.keys(by).map(a=>`<span class="chip">${a}×${by[a].n}</span>`).join('')+'</div></div>'}
   $('#v-pal').innerHTML=h+'</div>';
 }
@@ -188,7 +247,7 @@ function tasks(){
   const gen=tf==='gen',rows=gen?R.tasks:S.itasks;
   $('#v-tasks').innerHTML=`<div class="flex flex-wrap gap-2 mb-3 noprint"><button class="btn ${gen?'':'btn2'}" data-tf="gen">Автозадачі (${R.tasks.length})</button><button class="btn ${gen?'btn2':''}" data-tf="xl">Задачі з Excel (${S.itasks.length})</button><button class="btn ml-auto" data-print>🖨 Друк усіх задач</button></div>
   <div class="card overflow-auto max-h-[75vh]" id="printArea"><div class="onlyprint" style="margin-bottom:8px"><h2 style="font-size:16px;font-weight:700">Задачі на переміщення — ${gen?'автозадачі':'з Excel'}</h2><div style="font-size:11px">Дата друку: ${new Date().toLocaleString('uk-UA')} · Всього задач: ${rows.length}</div></div><table class="t"><thead><tr><th>№</th><th>Звідки</th><th>Артикул</th><th>Дата</th><th>Куди</th><th>Тип</th><th>Пріоритет</th><th>Дія</th></tr></thead><tbody>`+
-  rows.map((t,i)=>`<tr class="${Q&&(String(t.art).includes(Q)||String(t.from).includes(Q.toUpperCase())||String(t.to).includes(Q.toUpperCase()))?'bg-blue-500/20':''}"><td>${i+1}</td><td>${t.from}</td><td>${t.art}</td><td>${t.date||''}</td><td>${t.to}</td><td>${t.type}</td><td>${t.pr}</td><td>${gen?`<button class="btn noprint" data-do="${i}">Виконати</button><span class="onlyprint">☐ ПЕРЕНЕСТИ</span>`:(t.act||'')}</td></tr>`).join('')+
+  rows.map((t,i)=>`<tr class="${Q&&(String(t.art).includes(Q)||String(t.from).includes(Q.toUpperCase())||String(t.to).includes(Q.toUpperCase()))?'bg-blue-500/20':''}"><td>${i+1}</td><td>${t.from}</td><td>${t.art}</td><td>${t.date||''}</td><td>${t.to}</td><td>${t.type}</td><td>${t.pr}</td><td>${gen?`<span class="onlyprint">☐ </span>${t.act} <button class="btn noprint" data-do="${i}">Виконати</button>`:(t.act||'')}</td></tr>`).join('')+
   `</tbody></table>${rows.length?'':'<p class="mut p-3">Задач немає</p>'}</div>`;
 }
 function an(){
@@ -206,7 +265,6 @@ function search(){
   $('#sinfo').textContent=`Знайдено: ${n} комірок, ${p} палет`;
   document.querySelectorAll('#v-din .cell,#v-strit .cell').forEach(b=>{b.classList.toggle('hl',hit(R.map[b.dataset.c]))});
 }
-// ---- Модальні вікна ----
 const modal=h=>{$('#mbody').innerHTML=h+'<div class="text-right mt-3"><button class="btn" data-close>Закрити</button></div>';$('#modal').style.display='flex'};
 function cellInfo(code){
   const c=R.map[code],tk=R.tasks.filter(t=>t.from===code||t.to===code);
@@ -223,39 +281,54 @@ function palInfo(code){
   modal(`<h2 class="text-xl font-bold mb-2">Палета ${code}</h2>`+(it.length?`<table class="t"><thead><tr><th>Артикул</th><th>К-сть</th><th>FIFO (найстаріша)</th></tr></thead><tbody>`+
    Object.keys(by).map(a=>`<tr><td>${a}</td><td>${by[a].n}</td><td>${by[a].d.reduce((m,d)=>dk(d)<dk(m)?d:m)||'—'}</td></tr>`).join('')+`</tbody></table>`:'<p class="mut">Палета порожня</p>'));
 }
-// ---- Виконання задачі ----
 function doTask(i){
-  const t=R.tasks[i];if(t.to==='—'){alert('Немає вільного місця для переміщення');return}
-  const pl=/^P\d+$/.test(t.from),arr=pl?S.pallets[t.from]:S.stock[t.from];
-  const k=arr.findIndex(x=>eq(x.art,t.art)&&x.date===t.date);if(k<0)return;
-  const it=arr.splice(k,1)[0];if(!pl&&!arr.length)delete S.stock[t.from];
-  (S.stock[t.to]=S.stock[t.to]||[]).push(it);
-  log(`${t.type}: ${t.from} → ${t.to}, арт. ${t.art}, ${t.date||'—'}`);save();renderAll();
+  const t=R.tasks[i];
+  if(/^ВІЛЬНЕ/.test(t.to)){alert('Для цієї задачі треба вручну обрати вільне місце в буфері. Перенесіть товар і оновіть дані у вікні «Встановлення даних».');return}
+  const nl=s=>String(s||'').toUpperCase().replace(/[ \t]/g,'');
+  const find=(loc,art,date)=>S.rows.findIndex(r=>nl(r.code)===nl(loc)&&String(r.art).trim()===String(art)&&(date==null||date==='-'||(r.date||'')===date));
+  if(t.type==='Пересорт'){const a=find(t.from,t.art),b=find(t.to,t.art2);if(a<0||b<0)return;const x=S.rows[a].code;S.rows[a].code=S.rows[b].code;S.rows[b].code=x}
+  else{const a=find(t.from,t.art,t.date);if(a<0)return;S.rows[a].code=t.to}
+  derive();log(`${t.type}: ${t.from} → ${t.to}, арт. ${t.art}, ${t.date||'—'}`);save();renderAll();
 }
-// ---- Імпорт Excel ----
+
+// ВИПРАВЛЕНИЙ ІМПОРТ EXCEL (Тільки лист Введення_Даних та Задачі_на_Переміщення)
 function importXlsx(file){
   const fr=new FileReader();
   fr.onload=e=>{try{
     const wb=XLSX.read(e.target.result,{type:'array'});
     const sh=n=>{const k=wb.SheetNames.find(x=>x.trim()===n)||wb.SheetNames.find(x=>x.trim().toLowerCase().startsWith(n.slice(0,6).toLowerCase()));return k?XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:null}):null};
-    const stock={},pallets={};let n=0;
-    (sh('Введення_Даних')||[]).forEach(r=>{if(!r[0]||r[1]==null)return;const c=String(r[0]).trim().toUpperCase(),it={art:String(r[1]).trim(),date:toDate(r[2])};
-      if(/^P\d{1,2}$/.test(c)){const p='P'+pad(c.slice(1));(pallets[p]=pallets[p]||[]).push(it)}else(stock[c]=stock[c]||[]).push(it);n++});
-    let extra=0;
-    ['Схема_Стелажів_DIN','Схема_Стелажів_STRIT'].forEach(name=>{const rows=sh(name);if(!rows)return;
-      rows.forEach((r,i)=>{if(!r[1]||!String(r[1]).startsWith('Позиція'))return;
-        const m=String(((rows[i-1]||[])[1])||'').match(/СЕКЦІЯ\s+([0-9A-Z]+)/);if(!m)return;
-        const ps=[];for(let j=2;!isNaN(parseInt(r[j]));j++)ps.push(parseInt(r[j]));
-        for(let k=1;k<=4;k++){const lr=rows[i+k];if(!lr||!/Рівень/.test(lr[1]))break;const l=parseInt(String(lr[1]).slice(-1));
-          ps.forEach((p,j)=>{const v=lr[2+j];if(v==null||v==='')return;const code=m[1]+l+pad(p)+'A';if(!stock[code]){stock[code]=[{art:String(v),date:null}];extra++}})}})});
+    const stock={},pallets={},rows=[];let n=0;
+    
+    (sh('Введення_Даних')||[]).forEach(r=>{
+      if(!r[0]||r[1]==null)return;
+      const c=String(r[0]).trim().toUpperCase(),it={art:String(r[1]).trim(),date:toDate(r[2])};
+      if(/^P\d{1,2}$/.test(c)){
+        const p='P'+pad(c.slice(1));
+        (pallets[p]=pallets[p]||[]).push(it);
+        rows.push({code:p,art:it.art,date:it.date});
+      } else {
+        (stock[c]=stock[c]||[]).push(it);
+        rows.push({code:c,art:it.art,date:it.date});
+      }
+      n++;
+    });
+
     const it=(sh('Задачі_на_Переміщення')||[]).slice(3).filter(r=>Number.isInteger(r[0])&&r[1]).map(r=>({n:r[0],from:r[1],art:r[2],date:toDate(r[3]),to:r[4],type:r[5]||'',pr:r[6]??'',act:r[7]||''}));
-    S={stock,pallets,itasks:it,log:S.log};
-    log(`Імпорт Excel: ${n} рядків, комірок ${Object.keys(stock).length}, палет ${Object.keys(pallets).length}, задач з Excel ${it.length}${extra?`, додано зі схем ${extra}`:''}`);
+    
+    S={rows,stock:{},pallets:{},itasks:it,log:S.log};
+    derive();
+    
+    const V=vbaTasks(S.rows||[]);
+    console.table(V.tasks);
+    console.log("Згенеровано HTML задач:", V.tasks.length);
+    console.log("Задач з Excel:", it.length);
+
+    log(`Імпорт Excel: ${n} рядків, комірок ${Object.keys(stock).length}, палет ${Object.keys(pallets).length}, задач з Excel ${it.length}`);
     save();renderAll();
   }catch(err){alert('Помилка імпорту: '+err.message)}};
   fr.readAsArrayBuffer(file);
 }
-// ---- Події ----
+
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-c],[data-p],[data-do],[data-tab],[data-tf],[data-close],[data-dm],[data-print],[data-paste]');
   if(e.target.id==='modal'||(t&&t.dataset.close!==undefined)){$('#modal').style.display='none';return}
@@ -274,10 +347,10 @@ function dataWin(){
   modal(`<h2 class="text-xl font-bold mb-1">Встановлення даних</h2>
   <p class="text-sm mut mb-3">Зараз у системі: комірок — ${nc}, одиниць на палетах — ${np}, задач з Excel — ${S.itasks.length}.</p>
   <h4 class="font-semibold mb-1">1. Файл Excel</h4>
-  <label class="drop" id="drop">Перетягніть сюди XLSX/XLSM або натисніть для вибору<br><span class="text-xs mut">листи: Введення_Даних, Схема_Стелажів_DIN, Схема_Стелажів_STRIT, Задачі_на_Переміщення</span>
+  <label class="drop" id="drop">Перетягніть сюди XLSX/XLSM або натисніть для вибору<br><span class="text-xs mut">листи: Введення_Даних, Задачі_на_Переміщення</span>
   <input id="fx" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
   <h4 class="font-semibold mt-4 mb-1">2. Вставити вручну</h4>
-  <p class="text-xs mut mb-1">Кожен рядок: комірка або палета, артикул, дата (дд.мм.рррр). Роздільник — пробіл, табуляція або «;». Можна копіювати з Excel.</p>
+  <p class="text-xs mut mb-1">Кожен рядок: комірка або палета, артикул, дата (дд.мм.рррр). Роздільник — пробіл, табуляція або «;».</p>
   <textarea id="paste" rows="6" class="w-full" style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:.5rem;padding:.5rem;font-family:monospace;font-size:.8rem" placeholder="1Q101A 822813 28.09.2026&#10;P14 822808 21.09.2026"></textarea>
   <div class="flex gap-2 mt-2"><button class="btn" data-paste="add">Додати / оновити</button><button class="btn red" data-paste="rep">Замінити всі дані</button></div>`);
   const d=$('#drop');
@@ -287,20 +360,16 @@ function dataWin(){
   $('#fx').onchange=e=>{if(e.target.files[0]){importXlsx(e.target.files[0]);$('#modal').style.display='none'}};
 }
 function pasteData(rep){
-  const lines=$('#paste').value.split(/\n/).map(l=>l.trim()).filter(Boolean),stock=rep?{}:S.stock,pallets=rep?{}:S.pallets;let n=0,bad=0;
-  if(!rep)Object.keys(pallets).length;
-  const touched=new Set();
+  const lines=$('#paste').value.split(/\n/).map(l=>l.trim()).filter(Boolean),nr=[];let bad=0;
   lines.forEach(l=>{const p=l.split(/[\t;, ]+/);if(p.length<2||!/^\d+$/.test(p[1])){bad++;return}
-    const c=p[0].toUpperCase(),it={art:p[1],date:toDate(p[2])};
-    if(/^P\d{1,2}$/.test(c)){const k='P'+pad(c.slice(1));if(!rep&&!touched.has(k)){pallets[k]=[];touched.add(k)}(pallets[k]=pallets[k]||[]).push(it)}
-    else{if(!rep&&!touched.has(c)){stock[c]=[];touched.add(c)}(stock[c]=stock[c]||[]).push(it)}n++});
-  if(!n){alert('Не знайдено коректних рядків');return}
-  S.stock=stock;S.pallets=pallets;if(rep)S.itasks=[];
-  log(`Ручне введення (${rep?'заміна':'додавання'}): ${n} рядків${bad?`, пропущено ${bad}`:''}`);save();renderAll();$('#modal').style.display='none';
+    let c=p[0].toUpperCase();if(/^P\d{1,2}$/.test(c))c='P'+pad(c.slice(1));nr.push({code:c,art:p[1],date:toDate(p[2])})});
+  if(!nr.length){alert('Не знайдено коректних рядків');return}
+  if(rep){S.rows=nr;S.itasks=[]}else{const t=new Set(nr.map(r=>r.code));S.rows=S.rows.filter(r=>!t.has(r.code)).concat(nr)}
+  derive();log(`Ручне введення (${rep?'заміна':'додавання'}): ${nr.length} рядків${bad?`, пропущено ${bad}`:''}`);save();renderAll();$('#modal').style.display='none';
 }
-$('#fj').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=x=>{try{const o=JSON.parse(x.target.result);if(!o.stock)throw Error('невірний формат');S={stock:o.stock,pallets:o.pallets||{},itasks:o.itasks||[],log:o.log||[]};log('Імпорт JSON');save();renderAll()}catch(er){alert('Помилка: '+er.message)}};r.readAsText(f);e.target.value=''};
+$('#fj').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=x=>{try{const o=JSON.parse(x.target.result);if(!o.stock)throw Error('невірний формат');S={rows:o.rows||rowsFromMaps(o),stock:{},pallets:{},itasks:o.itasks||[],log:o.log||[]};derive();log('Імпорт JSON');save();renderAll()}catch(er){alert('Помилка: '+er.message)}};r.readAsText(f);e.target.value=''};
 $('#bExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='wms_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click()};
-$('#bClr').onclick=()=>{if(confirm('Видалити всі дані?')){S={stock:{},pallets:{},itasks:[],log:[]};save();renderAll()}};
+$('#bClr').onclick=()=>{if(confirm('Видалити всі дані?')){S={rows:[],stock:{},pallets:{},itasks:[],log:[]};save();renderAll()}};
 $('#bTh').onclick=()=>{const d=document.documentElement.classList.toggle('dark');localStorage.setItem('wms_theme',d?'d':'l');dash()};
 if(localStorage.getItem('wms_theme')?localStorage.getItem('wms_theme')==='d':matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.classList.add('dark');
 renderAll();
