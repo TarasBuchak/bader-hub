@@ -33,7 +33,7 @@
         </header>
 
         <!-- Сітка додатків -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             
             <!-- Картка 1: Карта складу -->
             <a href="warehouse-map.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
@@ -62,8 +62,81 @@
                 <p class="text-sm text-slate-400">Планувальник комплектації (SAP FIFO), підбір замовлень COOIS та Звіти дефіциту.</p>
             </a>
 
+            <!-- Картка 4: WorkTrace Pro (Із захистом паролем) -->
+            <div onclick="openPasswordModal()" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
+                <div class="w-16 h-16 rounded-full bg-amber-900/50 flex items-center justify-center mb-4 group-hover:bg-amber-600/50 transition-colors border border-amber-500/30">
+                    <i class="fas fa-shield-alt text-2xl text-amber-400 group-hover:text-amber-200"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">WorkTrace Pro</h2>
+                <p class="text-sm text-slate-400">Захищений модуль трекінгу робочих процесів (потребує пароль).</p>
+            </div>
+
         </div>
     </div>
+
+    <!-- Модальне вікно введення пароля -->
+    <div id="passwordModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="glass-card rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-700">
+            <div class="text-center mb-4">
+                <div class="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3 border border-amber-500/30">
+                    <i class="fas fa-lock text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-white">Введіть пароль доступу</h3>
+                <p class="text-xs text-slate-400 mt-1">Для переходу в WorkTrace Pro потрібен спеціальний код</p>
+            </div>
+            
+            <form onsubmit="checkPassword(event)">
+                <input type="password" id="accessPassword" placeholder="Введіть пароль..." autocomplete="current-password" class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors mb-2 text-center tracking-widest text-lg" autofocus>
+                <p id="errorMsg" class="text-xs text-rose-400 text-center mb-4 hidden">Невірний пароль. Спробуйте ще раз.</p>
+                
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closePasswordModal()" class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2.5 rounded-xl transition-colors">Скасувати</button>
+                    <button type="submit" class="w-1/2 bg-amber-600 hover:bg-amber-500 text-white font-medium py-2.5 rounded-xl transition-colors shadow-lg shadow-amber-600/20">Увійти</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openPasswordModal() {
+            const modal = document.getElementById('passwordModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('accessPassword').value = '';
+            document.getElementById('errorMsg').classList.add('hidden');
+            setTimeout(() => document.getElementById('accessPassword').focus(), 50);
+        }
+
+        function closePasswordModal() {
+            const modal = document.getElementById('passwordModal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }
+
+        function checkPassword(event) {
+            event.preventDefault();
+            const password = document.getElementById('accessPassword').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (password === '3817') {
+                window.location.href = 'worktrace-pro.html';
+            } else {
+                errorMsg.classList.remove('hidden');
+                document.getElementById('accessPassword').classList.add('border-rose-500');
+                setTimeout(() => {
+                    document.getElementById('accessPassword').classList.remove('border-rose-500');
+                }, 1000);
+            }
+        }
+
+        // Закриття модального вікна по кліку поза ним
+        window.onclick = function(event) {
+            const modal = document.getElementById('passwordModal');
+            if (event.target === modal) {
+                closePasswordModal();
+            }
+        }
+    </script>
 
 </body>
 </html>
