@@ -2,182 +2,324 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Карта заповненості складу</title>
-    <!-- Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта заповненості складу BADER</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#1e293b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Bader%20Warehouse%22%2C%22short_name%22%3A%22WMS%20Map%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f172a%22%2C%22theme_color%22%3A%22%231e293b%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzFBMjAyQyIvPjwvc3ZnPg%3D%3D%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .highlight-pulse {
-            animation: pulseBorder 1.5s infinite;
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                        }
+                    }
+                }
+            }
         }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas"></script>
+
+    <style>
+        .highlight-pulse { animation: pulseBorder 1.5s infinite; z-index: 20;}
+        .highlight-empty { animation: pulseGreen 2s infinite; z-index: 10;}
+        
         @keyframes pulseBorder {
-            0% { box-shadow: 0 0 5px rgba(34, 211, 238, .4); }
-            50% { box-shadow: 0 0 20px rgba(34, 211, 238, .9); }
-            100% { box-shadow: 0 0 5px rgba(34, 211, 238, .4); }
+            0% { box-shadow: 0 0 5px rgba(34, 211, 238, .5); transform: scale(1); }
+            50% { box-shadow: 0 0 25px rgba(34, 211, 238, 1); transform: scale(1.3); border-color: #06b6d4; }
+            100% { box-shadow: 0 0 5px rgba(34, 211, 238, .5); transform: scale(1); }
         }
 
-        /* Потужне використання ширини аркуша та чіткі розриви по 7 рядів */
+        @keyframes pulseGreen {
+            0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); border-color: #4ade80;}
+            70% { box-shadow: 0 0 0 10px rgba(74, 222, 128, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+        }
+
+        /* Scrollbars */
+        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark .custom-scroll::-webkit-scrollbar-thumb { background: #475569; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Print Styles */
         @media print {
-            body { background-color: white; padding: 0; margin: 0; }
+            body { background-color: white !important; padding: 0; margin: 0; color: black !important; }
             .no-print { display: none !important; }
             .page-break { page-break-before: always; break-before: page; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .shadow-sm { box-shadow: none !important; }
+            .shadow-sm, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
             .tooltip { display: none !important; }
             .overflow-x-auto { overflow: visible !important; }
             
-            /* Максимальне заповнення в боки */
-            #mapContainer { zoom: 95%; width: 100% !important; max-width: none !important; }
-            .bg-white.rounded-xl { border: none !important; padding: 0 !important; box-shadow: none !important; }
+            #mapContainer { zoom: 95%; width: 100% !important; max-width: none !important; background: white !important;}
+            .bg-white, .dark\:bg-slate-800 { background-color: white !important; border: none !important; padding: 0 !important; }
             
             .aisle-block { 
-                page-break-inside: avoid; 
-                break-inside: avoid; 
-                margin-bottom: 12px !important; 
-                width: 100% !important;
+                page-break-inside: avoid; break-inside: avoid; 
+                margin-bottom: 12px !important; width: 100% !important;
+                background-color: #f8fafc !important; border: 1px solid #cbd5e1 !important;
             }
-            .print-break-after { 
-                display: block;
-                page-break-after: always; 
-                break-after: page; 
-                margin: 0; 
-                padding: 0; 
-                border: none; 
-                height: 0; 
-            }
-
+            .print-break-after { display: block; page-break-after: always; break-after: page; margin: 0; padding: 0; border: none; height: 0; }
+            
             .print-empty { background-color: #ffffff !important; border: 1px dashed #cbd5e1 !important; color: #e2e8f0 !important; }
             .print-one { background-color: #f1f5f9 !important; border: 1px solid #64748b !important; color: #334155 !important; }
             .print-two { background-color: #cbd5e1 !important; border: 1px solid #334155 !important; color: #0f172a !important; }
             .print-over { background-color: #64748b !important; border: 2px solid #0f172a !important; color: #ffffff !important; font-weight: 900 !important; }
             .print-nonliquid { background-color: #1e293b !important; border: 2px solid #000000 !important; color: #ffffff !important; font-weight: 900 !important; }
         }
-
         @page { size: landscape; margin: 0.2cm; }
         .print-break-after { display: none; }
-
-        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 min-h-screen font-sans transition-colors duration-200">
 
-    <!-- Верхня панель керування -->
-    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+    <!-- Header -->
+    <header class="no-print bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50 shadow-sm transition-colors duration-200">
+        <div class="max-w-screen-2xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center space-x-3">
-                <div class="bg-blue-600 text-white p-2 rounded-lg font-bold text-lg">СКЛАД</div>
+                <div class="bg-blue-600 dark:bg-blue-500 text-white p-2 rounded-lg font-bold text-lg leading-none flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    BADER
+                </div>
                 <div>
-                    <h1 class="text-xl font-bold text-slate-900">Карта заповненості складу</h1>
-                    <p class="text-xs text-slate-500" id="update-time">Оновлено: ніколи</p>
+                    <h1 class="text-xl font-bold text-slate-900 dark:text-white">Карта заповненості складу</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium" id="update-time">Оновлено: ніколи</p>
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                <div class="relative">
-                    <input type="text" id="searchInput" placeholder="Пошук артикулу..." class="pl-3 pr-24 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="searchSKU()" class="absolute right-1 top-1 bottom-1 px-3 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition">Знайти</button>
+                <!-- Smart Search -->
+                <div class="relative w-64">
+                    <input type="text" id="searchInput" placeholder="Пошук артикулу або локації..." class="w-full pl-3 pr-20 py-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white transition-colors placeholder-slate-400">
+                    <button onclick="searchSmart()" class="absolute right-1 top-1 bottom-1 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-md transition">Знайти</button>
                 </div>
-                <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-900 transition shadow-sm">
-                    Друк
-                </button>
-                <div class="flex items-center gap-1 border-l pl-3 border-slate-200">
-                    <button onclick="exportBackup()" title="Експортувати у JSON" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">Експорт</button>
-                    <label title="Імпортувати з JSON" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer">
-                        Імпорт <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
-                    </label>
+                
+                <!-- Utilities -->
+                <div class="flex items-center gap-2 border-l border-slate-200 dark:border-slate-600 pl-3">
+                    <button onclick="toggleTheme()" class="p-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-semibold transition" title="Перемикач теми">
+                        <span id="themeIcon">🌙</span>
+                    </button>
+                    <button onclick="toggleAnalytics()" class="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-sm font-semibold transition border border-indigo-200 dark:border-indigo-800">
+                        📊 Аналітика
+                    </button>
+                    <button onclick="exportMapImage(this)" class="px-3 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-sm font-semibold transition border border-emerald-200 dark:border-emerald-800" title="Завантажити PNG">
+                        🖼️ PNG
+                    </button>
+                    <button onclick="exportInventoryCSV()" class="px-3 py-2 bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/50 rounded-lg text-sm font-semibold transition border border-sky-200 dark:border-sky-800" title="Експорт CSV">📄 CSV</button>
+                    <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 dark:bg-slate-600 text-white text-sm font-semibold rounded-lg hover:bg-slate-900 dark:hover:bg-slate-500 transition shadow-sm">
+                        🖨️ Друк
+                    </button>
+                    <div class="relative group">
+                        <button class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-semibold transition">
+                            Дані ⚙️
+                        </button>
+                        <div class="absolute right-0 mt-2 w-32 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 hidden group-hover:block overflow-hidden">
+                            <button onclick="exportBackup()" class="w-full text-left px-4 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white">Експорт JSON</button>
+                            <label class="block w-full text-left px-4 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-white cursor-pointer">
+                                Імпорт JSON <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Основний контент -->
-    <main class="max-w-7xl mx-auto px-4 py-6">
+    <!-- Main Content -->
+    <main class="max-w-screen-2xl mx-auto px-4 py-6">
         
-        <!-- Панель вставки даних з Excel -->
-        <div class="no-print bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
-            <h2 class="text-sm font-bold text-slate-700 mb-2">Вставка даних з Excel (Колонки: Локація, Артикул):</h2>
-            <textarea id="dataInput" rows="3" placeholder="Вставте дані сюди (Ctrl+V)..." class="w-full text-xs font-mono p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 custom-scroll"></textarea>
+        <!-- Messages -->
+        <div id="messageBox" class="no-print hidden mb-4 p-4 rounded-xl text-sm font-medium border transition-all"></div>
+        
+        <!-- Search Navigation -->
+        <div id="searchControls" class="no-print hidden mb-4 p-3 bg-cyan-50 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-800 rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div id="searchResults" class="flex flex-wrap gap-2 items-center text-sm dark:text-cyan-100"></div>
+            <div class="flex items-center gap-2">
+                <button onclick="navigateSearchResult(-1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">◄ Попередній</button>
+                <span id="searchNavInfo" class="text-xs font-medium text-cyan-900 dark:text-cyan-100 bg-cyan-100 dark:bg-cyan-800 px-2 py-1 rounded">0 / 0</span>
+                <button onclick="navigateSearchResult(1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">Наступний ►</button>
+                <button onclick="clearHighlights()" class="px-2 py-1 bg-slate-300 dark:bg-slate-600 text-slate-800 dark:text-white text-xs font-bold rounded shadow hover:bg-slate-400 ml-2">✖</button>
+            </div>
+        </div>
+
+        <!-- Dashboard Analytics (Collapsible) -->
+        <div id="analyticsDashboard" class="no-print hidden transition-all duration-300 mb-6 space-y-4">
+            
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Місткість</div>
+                    <div class="text-2xl font-bold text-slate-800 dark:text-white" id="stat-capacity">0</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Заповнено локацій</div>
+                    <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="stat-filled">0</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Порожньо</div>
+                    <div class="text-2xl font-bold text-emerald-500 dark:text-emerald-400" id="stat-empty">0</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Всього ящиків</div>
+                    <div class="text-2xl font-bold text-indigo-600 dark:text-indigo-400" id="stat-boxes">0</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Відсоток заповнення</div>
+                    <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="stat-percent">0.0%</div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Вставити Дані</div>
+                    <button onclick="document.getElementById('dataInputArea').classList.toggle('hidden')" class="mt-1 w-full py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded font-semibold dark:text-white transition">Відкрити Excel ▼</button>
+                </div>
+            </div>
+
+            <!-- Complex Analytics Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                <!-- Chart -->
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 w-full">📊 Графік завантаженості складу</h3>
+                    <div class="w-full max-w-[200px] aspect-square relative">
+                        <canvas id="loadChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top 10 Locations -->
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex justify-between items-center">
+                        <span>🔥 ТОП-10 заповнених локацій</span>
+                        <select id="top10Sort" onchange="changeTop10Sort(this.value)" class="text-xs bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded p-1 dark:text-white focus:outline-none">
+                            <option value="qty">▼ За кількістю</option>
+                            <option value="row">▼ За рядом</option>
+                            <option value="floor">▼ За поверхом</option>
+                        </select>
+                    </h3>
+                    <div id="topLocationsList" class="flex-1 overflow-y-auto custom-scroll text-sm space-y-1 pr-2 max-h-48">
+                        <div class="text-slate-400 text-xs italic">Немає даних</div>
+                    </div>
+                </div>
+
+                <!-- Problematic Cells & Find Empty -->
+                <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col">
+                    
+                    <div class="mb-4 border-b border-slate-100 dark:border-slate-700 pb-4">
+                        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">⚠️ Проблемні комірки (Перевантаження)</h3>
+                        <div id="problemCellsList" class="overflow-y-auto custom-scroll text-sm space-y-1 max-h-24 pr-2">
+                            <div class="text-slate-400 text-xs italic">Все в нормі</div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 flex flex-col justify-end">
+                        <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">🚛 Виявлення вільних місць</h3>
+                        <div class="flex gap-2">
+                            <select id="emptySpaceAisle" class="flex-1 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="ALL">Всі ряди</option>
+                                <!-- Populated in JS -->
+                            </select>
+                            <button onclick="findEmptySpaces()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition shadow">Показати</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row Statistics -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">📦 Статистика заповненості по рядах</h3>
+                <div id="rowStatsContainer" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300">🏷️ Статистика артикулів</h3>
+                    <span id="skuUniqueCount" class="text-xs font-semibold text-slate-500 dark:text-slate-400">Унікальних артикулів: 0</span>
+                </div>
+                <div id="topSkuList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                    <div class="text-slate-400 text-xs italic">Немає даних</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Input Area (Hidden by default to save space, toggled from stats) -->
+        <div id="dataInputArea" class="no-print hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 mb-6 transition-all">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200">Вставка даних з Excel (Колонки: Локація, Артикул):</h2>
+                <button onclick="document.getElementById('dataInputArea').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">✖</button>
+            </div>
+            <textarea id="dataInput" rows="3" placeholder="Вставте дані сюди (Ctrl+V)..." class="w-full text-xs font-mono p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-slate-300 custom-scroll"></textarea>
             <div class="flex flex-wrap justify-between items-center mt-3 gap-2">
                 <button onclick="confirmAndLoadData()" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm">
                     Завантажити дані
                 </button>
-                <span id="loadStatus" class="text-xs font-medium text-slate-500">Дані не завантажено</span>
+                <div class="flex items-center gap-3">
+                    <span id="loadStatus" class="text-xs font-medium text-slate-500 dark:text-slate-400">Дані не завантажено</span>
+                    <button onclick="clearWarehouse()" class="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 text-xs font-bold rounded shadow transition border border-red-200 dark:border-red-800">
+                        🗑 Очистити
+                    </button>
+                </div>
             </div>
+            <div id="importReport" class="hidden mt-4 p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-xs space-y-1"></div>
         </div>
 
-        <!-- Повідомлення та розгорнутий звіт -->
-        <div id="messageBox" class="no-print hidden mb-4 p-4 rounded-xl text-sm font-medium border transition-all"></div>
-        <div id="importReport" class="no-print hidden mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1"></div>
-        
-        <!-- Панель результатів пошуку з навігацією -->
-        <div id="searchControls" class="no-print hidden mb-4 p-3 bg-cyan-50 border border-cyan-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
-            <div id="searchResults" class="flex flex-wrap gap-2 items-center"></div>
-            <div class="flex items-center gap-2">
-                <button onclick="navigateSearchResult(-1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">◄ Попередня</button>
-                <span id="searchNavInfo" class="text-xs font-medium text-cyan-900">0 / 0</span>
-                <button onclick="navigateSearchResult(1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">Наступна ►</button>
-            </div>
+        <!-- Legend -->
+        <div class="no-print bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 mb-6 flex flex-wrap items-center gap-6 text-xs font-medium shadow-sm transition-colors">
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#e2e8f0] dark:bg-slate-700 border border-slate-400 dark:border-slate-500 inline-block"></span> Порожнє</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#93c5fd] dark:bg-blue-800 border border-blue-400 dark:border-blue-500 inline-block"></span> 1 ящик</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#4ade80] dark:bg-emerald-700 border border-emerald-500 inline-block"></span> 2 ящики (оптимально)</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#facc15] dark:bg-amber-600 border border-amber-500 inline-block"></span> 3+ перевантаження</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#0f766e] dark:bg-teal-900 border border-teal-800 dark:border-teal-500 inline-block"></span> 2+ неліквід (Q/R)</div>
         </div>
 
-        <!-- Статистика -->
-        <div class="no-print grid grid-cols-2 sm:grid-cols-6 gap-3 mb-6">
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Місткість (місць)</div>
-                <div class="text-lg font-bold text-slate-800" id="stat-capacity">0</div>
-            </div>
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Заповнено локацій</div>
-                <div class="text-lg font-bold text-blue-600" id="stat-filled">0</div>
-            </div>
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Порожньо локацій</div>
-                <div class="text-lg font-bold text-slate-500" id="stat-empty">0</div>
-            </div>
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Всього ящиків</div>
-                <div class="text-lg font-bold text-emerald-600" id="stat-boxes">0</div>
-            </div>
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Заповнення місткості</div>
-                <div class="text-lg font-bold text-purple-600" id="stat-percent">0.0%</div>
-            </div>
-            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-                <div class="text-[11px] text-slate-500 font-medium">Дублікатів у рядках</div>
-                <div class="text-lg font-bold text-amber-600" id="stat-duplicates">0</div>
-            </div>
+        <!-- Quick Summary Block -->
+        <div id="quickSummaryBlock" class="no-print bg-slate-800 dark:bg-slate-950 text-white rounded-xl shadow-lg border border-slate-700 p-3 mb-6 flex flex-wrap items-center justify-around gap-4 text-sm font-semibold hidden">
+            <!-- Injected via JS -->
         </div>
 
-        <!-- Легенда -->
-        <div class="no-print bg-white rounded-xl border border-slate-200 p-4 mb-6 flex flex-wrap items-center gap-6 text-xs font-medium">
-            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#e2e8f0] border border-slate-400 inline-block"></span> Порожнє</div>
-            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#93c5fd] border border-blue-400 inline-block"></span> 1 ящик</div>
-            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#4ade80] border border-emerald-500 inline-block"></span> 2 ящики (оптимально)</div>
-            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#facc15] border border-amber-500 inline-block"></span> 3+ перевантаження</div>
-            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#0f766e] border border-teal-800 inline-block"></span> 2+ неліквід (Q/R)</div>
+        <!-- Map controls -->
+        <div class="no-print flex flex-wrap items-center gap-3 mb-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+            <label for="floorFilter" class="text-sm font-semibold">Поверх:</label>
+            <select id="floorFilter" onchange="filterFloor(this.value)" class="text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 dark:text-white">
+                <option value="ALL">Усі поверхи</option><option value="1">1 поверх</option><option value="2">2 поверх</option>
+            </select>
+            <span class="text-xs text-slate-500 dark:text-slate-400">Фільтр змінює лише відображення, дані не видаляються.</span>
         </div>
 
-        <!-- Контейнер карти складу -->
-        <div id="mapContainer" class="space-y-8"></div>
+        <!-- Map Container -->
+        <div id="mapContainer" class="space-y-8 relative"></div>
 
     </main>
 
-    <!-- Tooltip для ПК -->
-    <div id="tooltip" class="fixed hidden z-50 bg-slate-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl pointer-events-none max-w-xs"></div>
+    <!-- Tooltip (PC) -->
+    <div id="tooltip" class="fixed hidden z-[100] bg-slate-900/95 text-white text-xs rounded-lg py-2 px-3 shadow-xl pointer-events-none max-w-xs backdrop-blur-sm border border-slate-700 transition-opacity"></div>
 
-    <!-- Модальне вікно для мобільних пристроїв -->
-    <div id="mobileModal" class="no-print fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+    <!-- Mobile Modal -->
+    <div id="mobileModal" class="no-print fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4 transition-opacity">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700 transform transition-transform">
             <div class="flex justify-between items-start mb-4">
-                <h3 id="modalTitle" class="text-lg font-bold text-slate-900">Локація</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                <h3 id="modalTitle" class="text-lg font-bold text-slate-900 dark:text-white">Локація</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl font-bold">&times;</button>
             </div>
-            <div id="modalContent" class="text-sm text-slate-700 space-y-2 mb-6 max-h-60 overflow-y-auto"></div>
-            <button onclick="closeModal()" class="w-full py-2 bg-slate-800 text-white font-semibold rounded-xl text-sm">Закрити</button>
+            <div id="modalContent" class="text-sm text-slate-700 dark:text-slate-300 space-y-2 mb-6 max-h-60 overflow-y-auto custom-scroll pr-2"></div>
+            <button onclick="closeModal()" class="w-full py-2 bg-slate-800 dark:bg-slate-600 text-white font-semibold rounded-xl text-sm transition hover:bg-slate-700 dark:hover:bg-slate-500">Закрити</button>
         </div>
     </div>
 
+    <!-- JS Logic -->
     <script>
         const TIERS = 4;
         const MINART = 800000;
@@ -185,10 +327,104 @@
         const AISLES = ["R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E"];
 
         let inventoryData = {};
+        window.inventoryData = inventoryData;
         let totalCapacityVal = 0;
+        let aisleCapacity = {}; // { R: 96, Q: 96... }
         let currentSearchElements = [];
         let currentSearchIndex = 0;
+        let loadChartInstance = null;
+        let top10SortMode = 'qty';
 
+        // Notify global sync
+        window.notifyFirebaseSync = null;
+
+        // Export PNG functionality
+        function exportMapImage(btn = null) {
+            const mapEl = document.getElementById('mapContainer');
+            btn = btn || document.querySelector('button[onclick^="exportMapImage"]');
+            const originalText = btn ? btn.innerHTML : '';
+            if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Обробка...'; }
+            
+            html2canvas(mapEl, { scale: 2, useCORS: true, backgroundColor: document.documentElement.classList.contains('dark') ? '#0f172a' : '#f8fafc' }).then(canvas => {
+                const a = document.createElement('a');
+                a.download = `warehouse-map-${new Date().toISOString().slice(0,10)}.png`;
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+                if (btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                showMessage('Карту успішно експортовано в PNG', 'success');
+            }).catch(err => {
+                console.error(err);
+                if (btn) { btn.innerHTML = originalText; btn.disabled = false; }
+                showMessage('Помилка експорту PNG', 'error');
+            });
+        }
+
+        function filterFloor(value) {
+            document.querySelectorAll('#mapContainer > div').forEach((section, index) => {
+                const floor = String(index + 1);
+                section.classList.toggle('hidden', value !== 'ALL' && value !== floor);
+            });
+        }
+
+        function exportInventoryCSV() {
+            const rows = [['Локація','Поверх','Ряд','Ярус','Позиція','Кількість ящиків','Артикули']];
+            Object.values(inventoryData).forEach(item => {
+                rows.push([item.originalLoc, item.floor, item.aisle, item.tier, item.pos, item.qty, (item.skus || []).join('; ')]);
+            });
+            const csv = '\\uFEFF' + rows.map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(';')).join('\\r\\n');
+            const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `bader_warehouse_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+            showMessage('CSV-звіт сформовано.', 'success');
+        }
+
+        function changeTop10Sort(mode) {
+            top10SortMode = mode;
+            updateAllDashboards();
+        }
+
+        function clearWarehouse() {
+            if (!confirm('Ви дійсно бажаєте видалити ВСІ дані зі складу? Це неможливо скасувати.')) return;
+            
+            inventoryData = {};
+            localStorage.removeItem('warehouseData');
+            localStorage.removeItem('warehousePaste');
+            
+            renderMap();
+            updateAllDashboards();
+            showMessage('Усі дані складу видалено.', 'success');
+            
+            if (window.notifyFirebaseSync) window.notifyFirebaseSync(inventoryData);
+        }
+
+        // Dark Mode Logic
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.getElementById('themeIcon').innerText = isDark ? '☀️' : '🌙';
+            updateChartTheme(); // Update chart colors
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').innerText = '☀️';
+            } else {
+                document.getElementById('themeIcon').innerText = '🌙';
+            }
+        }
+
+        // Dashboard Toggle
+        function toggleAnalytics() {
+            const dash = document.getElementById('analyticsDashboard');
+            dash.classList.toggle('hidden');
+        }
+
+        // Warehouse Logic
         function getMaxPosition(floor, aisle) {
             if (floor === 1) {
                 if (["Q", "P", "O", "N", "M", "L"].includes(aisle)) return 28;
@@ -207,10 +443,25 @@
 
         function calcTotalCapacity() {
             let cap = 0;
+            aisleCapacity = {};
+            AISLES.forEach(a => { aisleCapacity[a] = 0; });
+            
+            // Populate select for empty spaces
+            const selectAisle = document.getElementById('emptySpaceAisle');
+            selectAisle.innerHTML = '<option value="ALL">Всі ряди</option>';
+            AISLES.forEach(a => {
+                let opt = document.createElement('option');
+                opt.value = a;
+                opt.text = `Ряд ${a}`;
+                selectAisle.add(opt);
+            });
+
             for (let f = 1; f <= 2; f++) {
                 AISLES.forEach(a => {
                     let m = getMaxPosition(f, a);
-                    cap += m * TIERS;
+                    let aCap = m * TIERS;
+                    cap += aCap;
+                    aisleCapacity[a] += aCap;
                 });
             }
             totalCapacityVal = cap;
@@ -238,7 +489,7 @@
             let maxP = getMaxPosition(f, a);
             if (t < 1 || t > TIERS || maxP === 0 || p < 1 || p > maxP) return null;
 
-            return { floor: f, aisle: a, tier: t, position: p, key: `${f}|${a}|${t}|${p < 10 ? '0' + p : p}` };
+            return { floor: f, aisle: a, tier: t, position: p, key: `${f}|${a}|${t}|${p < 10 ? '0' + p : p}`, rawLoc: `${f}${a}${t}${p < 10 ? '0' + p : p}A` };
         }
 
         function confirmAndLoadData() {
@@ -256,90 +507,272 @@
             const lines = text.split('\n');
             inventoryData = {};
             
-            let successRows = 0;
-            let formatErrors = 0;
-            let outOfRangeArt = 0;
-            let invalidLocs = 0;
-            let duplicateRows = 0;
-            let totalBoxes = 0;
+            let stats = { success: 0, formatErr: 0, outRange: 0, invalid: 0, dupe: 0, totalBoxes: 0 };
 
             lines.forEach(line => {
                 if (!line.trim()) return;
                 let parts = line.split('\t');
-                if (parts.length < 2) {
-                    parts = line.trim().split(/\s+/);
-                }
+                if (parts.length < 2) parts = line.trim().split(/\s+/);
 
                 if (parts.length >= 2) {
                     const locStr = parts[0].trim();
                     const artStr = parts[1].trim();
                     
-                    if (!artStr || isNaN(artStr)) {
-                        formatErrors++;
-                        return;
-                    }
+                    if (!artStr || isNaN(artStr)) { stats.formatErr++; return; }
                     let artNum = parseFloat(artStr);
-                    if (artNum < MINART || artNum > MAXART) {
-                        outOfRangeArt++;
-                        return;
-                    }
+                    if (artNum < MINART || artNum > MAXART) { stats.outRange++; return; }
 
                     let parsed = parseRawLoc(locStr);
                     if (parsed) {
                         let k = parsed.key;
                         if (!inventoryData[k]) {
-                            inventoryData[k] = { qty: 0, skus: [], originalLoc: locStr.toUpperCase(), floor: parsed.floor, aisle: parsed.aisle, tier: parsed.tier, pos: parsed.position };
+                            inventoryData[k] = { qty: 0, skus: [], originalLoc: parsed.rawLoc, floor: parsed.floor, aisle: parsed.aisle, tier: parsed.tier, pos: parsed.position };
                         } else {
-                            duplicateRows++;
+                            stats.dupe++;
                         }
                         inventoryData[k].qty++;
-                        totalBoxes++;
+                        stats.totalBoxes++;
                         inventoryData[k].skus.push(artStr);
-                        successRows++;
+                        stats.success++;
                     } else {
-                        invalidLocs++;
+                        stats.invalid++;
                     }
                 } else {
-                    formatErrors++;
+                    stats.formatErr++;
                 }
             });
 
+            saveAndRender(stats);
+        }
+
+        function saveAndRender(importStats = null, skipFirebase = false) {
             localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
-            localStorage.setItem('warehousePaste', document.getElementById('dataInput').value);
+            const pasteData = document.getElementById('dataInput').value;
+            if (pasteData) localStorage.setItem('warehousePaste', pasteData);
             localStorage.setItem('warehouseTimestamp', new Date().toISOString());
+            const updateMs = Date.now();
+            localStorage.setItem('warehouseLastUpdateMs', String(updateMs));
 
             renderMap();
-            let filledCount = Object.keys(inventoryData).length;
-            updateDashboard(filledCount, totalBoxes, duplicateRows);
+            updateAllDashboards();
             
             const now = new Date();
             document.getElementById('update-time').innerText = `Оновлено: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-            document.getElementById('loadStatus').innerText = `Імпорт завершено успішно.`;
+            document.getElementById('loadStatus').innerText = `Імпорт завершено.`;
 
-            const reportDiv = document.getElementById('importReport');
-            reportDiv.classList.remove('hidden');
-            reportDiv.innerHTML = `
-                <div class="font-bold text-slate-700 mb-1">Звіт імпорту даних:</div>
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-slate-600">
-                    <div>✅ Успішно: <span class="font-bold text-emerald-600">${successRows}</span></div>
-                    <div>⚠️ Помилок формату: <span class="font-bold text-amber-600">${formatErrors}</span></div>
-                    <div>🚫 Поза діапазоном: <span class="font-bold text-orange-600">${outOfRangeArt}</span></div>
-                    <div>❌ Невірні локації: <span class="font-bold text-red-600">${invalidLocs}</span></div>
-                    <div>📋 Дублікатів у комірках: <span class="font-bold text-blue-600">${duplicateRows}</span></div>
-                </div>
-            `;
+            if (importStats) {
+                const reportDiv = document.getElementById('importReport');
+                reportDiv.classList.remove('hidden');
+                reportDiv.innerHTML = `
+                    <div class="font-bold text-slate-700 dark:text-slate-300 mb-1">Звіт імпорту:</div>
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-slate-600 dark:text-slate-400">
+                        <div>✅ Успішно: <span class="font-bold text-emerald-600 dark:text-emerald-400">${importStats.success}</span></div>
+                        <div>⚠️ Формат: <span class="font-bold text-amber-600 dark:text-amber-400">${importStats.formatErr}</span></div>
+                        <div>🚫 Діапазон: <span class="font-bold text-orange-600 dark:text-orange-400">${importStats.outRange}</span></div>
+                        <div>❌ Невірні лок.: <span class="font-bold text-red-600 dark:text-red-400">${importStats.invalid}</span></div>
+                        <div>📋 Дублі: <span class="font-bold text-blue-600 dark:text-blue-400">${importStats.dupe}</span></div>
+                    </div>
+                `;
+                // Open dashboard automatically on import to show nice graphs
+                document.getElementById('analyticsDashboard').classList.remove('hidden');
+            }
+            
+            if (!skipFirebase && window.notifyFirebaseSync) {
+                window.notifyFirebaseSync(inventoryData);
+            }
+            window.inventoryData = inventoryData;
         }
 
-        function updateDashboard(filledCount, totalBoxes, duplicateRows = 0) {
-            document.getElementById('stat-filled').innerText = filledCount;
+        // Bridge for the Firebase module: update the same lexical inventoryData variable.
+        window.setInventoryDataFromCloud = function(data, cloudTimestamp) {
+            if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+            inventoryData = data;
+            window.inventoryData = inventoryData;
+            localStorage.setItem('warehouseLastUpdateMs', String(cloudTimestamp || Date.now()));
+            saveAndRender(null, true);
+            if (window._firebaseInitialSyncDone) showMessage("Склад синхронізовано з хмарою ☁️", "success");
+            window._firebaseInitialSyncDone = true;
+        };
+
+        // Advanced Analytics Updates
+        function updateAllDashboards() {
+            let filledCount = Object.keys(inventoryData).length;
             let emptyCount = totalCapacityVal - filledCount;
-            document.getElementById('stat-empty').innerText = emptyCount >= 0 ? emptyCount : 0;
+            let totalBoxes = 0;
+            
+            let counts = { empty: emptyCount > 0 ? emptyCount : 0, one: 0, two: 0, over: 0 };
+            let aisleFilled = {};
+            AISLES.forEach(a => aisleFilled[a] = 0);
+
+            let problems = [];
+            let allLocs = Object.values(inventoryData);
+
+            allLocs.forEach(item => {
+                totalBoxes += item.qty;
+                aisleFilled[item.aisle]++;
+                
+                let isNonLiquid = (item.floor === 2 && (item.aisle === 'Q' || item.aisle === 'R'));
+                
+                if (item.qty === 1) counts.one++;
+                else if (item.qty === 2) counts.two++;
+                else if (item.qty > 2) counts.over++;
+
+                // Problem Rules
+                if (item.qty > 2 || (isNonLiquid && item.qty > 1)) {
+                    problems.push(item);
+                }
+            });
+
+            let overloadedCount = allLocs.filter(i => i.qty > 2).length;
+            let nonLiquidCount = allLocs.filter(i => i.floor === 2 && (i.aisle === 'Q' || i.aisle === 'R') && i.qty > 1).length;
+
+            // 1. Basic Stats
+            document.getElementById('stat-filled').innerText = filledCount;
+            document.getElementById('stat-empty').innerText = counts.empty;
             document.getElementById('stat-boxes').innerText = totalBoxes;
-            document.getElementById('stat-duplicates').innerText = duplicateRows;
             let pct = totalCapacityVal > 0 ? (filledCount / totalCapacityVal) * 100 : 0;
             document.getElementById('stat-percent').innerText = pct.toFixed(1) + '%';
+            
+            // Header Info Sync
+            const d = new Date();
+            document.getElementById('update-time').innerText = `Оновлено: ${d.toLocaleDateString()} ${d.toLocaleTimeString().slice(0,5)} | Даних: ${filledCount} локації | Ящиків: ${totalBoxes}`;
+
+            // Quick Summary Block Update
+            const qSummary = document.getElementById('quickSummaryBlock');
+            qSummary.innerHTML = `
+                <div class="flex items-center gap-1 text-emerald-400">📦 Вільно: <span class="text-white">${counts.empty}</span> місць</div>
+                <div class="flex items-center gap-1 text-blue-400">📦 Заповнено: <span class="text-white">${filledCount}</span> місць</div>
+                <div class="flex items-center gap-1 text-purple-400">📦 Завантаженість: <span class="text-white">${pct.toFixed(1)}%</span></div>
+                <div class="flex items-center gap-1 text-red-400">⚠ Перевантажено: <span class="text-white">${overloadedCount}</span> локацій</div>
+                <div class="flex items-center gap-1 text-teal-400">⚠ Неліквід: <span class="text-white">${nonLiquidCount}</span> локацій</div>
+            `;
+            qSummary.classList.remove('hidden');
+
+            // 2. Chart.js
+            updateChart(counts);
+
+            // 3. Top 10
+            let top10 = [...allLocs];
+            if (top10SortMode === 'qty') top10.sort((a,b) => b.qty - a.qty);
+            else if (top10SortMode === 'row') top10.sort((a,b) => a.aisle.localeCompare(b.aisle));
+            else if (top10SortMode === 'floor') top10.sort((a,b) => a.floor - b.floor);
+            
+            top10 = top10.slice(0, 10);
+            
+            let topHtml = top10.length ? '' : '<div class="text-slate-400 text-xs italic">Немає даних</div>';
+            top10.forEach(item => {
+                topHtml += `<div onclick="focusLocation('${item.originalLoc}')" class="flex justify-between items-center py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition"><span class="font-mono text-blue-600 dark:text-blue-400 font-bold">${item.originalLoc}</span> <span class="bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded text-xs font-bold">${item.qty} ящ.</span></div>`;
+            });
+            document.getElementById('topLocationsList').innerHTML = topHtml;
+
+            // 4. Problems
+            problems.sort((a,b) => b.qty - a.qty);
+            let probHtml = problems.length ? '' : '<div class="text-emerald-500 text-xs italic font-bold">✅ Все в нормі</div>';
+            problems.forEach(item => {
+                let badge = item.qty > 2 ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300';
+                probHtml += `<div onclick="focusLocation('${item.originalLoc}')" class="flex justify-between items-center py-1.5 px-2 -mx-2 border-b border-slate-100 dark:border-slate-700 last:border-0 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 rounded transition"><span class="font-mono text-slate-700 dark:text-slate-300 font-bold">${item.originalLoc}</span> <span class="px-2 py-0.5 rounded text-xs font-bold ${badge}">${item.qty} ящ.</span></div>`;
+            });
+            document.getElementById('problemCellsList').innerHTML = probHtml;
+
+            // 5. Row Stats (Heatmap)
+            let rowHtml = '';
+            AISLES.forEach(a => {
+                let cap = aisleCapacity[a];
+                let fld = aisleFilled[a];
+                let perc = cap > 0 ? ((fld / cap) * 100).toFixed(0) : 0;
+                
+                let bgColor = 'bg-slate-50 dark:bg-slate-700/50';
+                let txtColor = 'text-slate-800 dark:text-white';
+                let subTxtColor = 'text-slate-500 dark:text-slate-400';
+                
+                if (perc > 90) {
+                    bgColor = 'bg-red-500 dark:bg-red-600 shadow-md';
+                    txtColor = 'text-white'; subTxtColor = 'text-red-100';
+                } else if (perc > 70) {
+                    bgColor = 'bg-orange-400 dark:bg-orange-500 shadow-md';
+                    txtColor = 'text-white'; subTxtColor = 'text-orange-100';
+                } else if (perc > 40) {
+                    bgColor = 'bg-yellow-400 dark:bg-yellow-500 shadow-md';
+                    txtColor = 'text-yellow-950 dark:text-yellow-950'; subTxtColor = 'text-yellow-800 dark:text-yellow-900';
+                } else if (perc > 0) {
+                    bgColor = 'bg-emerald-500 dark:bg-emerald-600 shadow-md';
+                    txtColor = 'text-white'; subTxtColor = 'text-emerald-100';
+                }
+
+                rowHtml += `
+                <div class="${bgColor} p-2 rounded-lg border border-slate-200/50 dark:border-slate-600/50 flex flex-col items-center transition-colors">
+                    <span class="font-bold text-lg ${txtColor}">${a}</span>
+                    <span class="text-xl font-black ${txtColor}">${perc}%</span>
+                    <span class="text-[10px] font-medium ${subTxtColor} mt-1">${fld}/${cap}</span>
+                </div>`;
+            });
+            document.getElementById('rowStatsContainer').innerHTML = rowHtml;
+
+            const skuCounts = new Map();
+            allLocs.forEach(item => (item.skus || []).forEach(sku => {
+                const normalized = String(sku).trim();
+                if (normalized) skuCounts.set(normalized, (skuCounts.get(normalized) || 0) + 1);
+            }));
+            document.getElementById('skuUniqueCount').textContent = `Унікальних артикулів: ${skuCounts.size}`;
+            const topSkus = [...skuCounts.entries()].sort((a,b) => b[1]-a[1] || a[0].localeCompare(b[0], 'uk')).slice(0,10);
+            document.getElementById('topSkuList').innerHTML = topSkus.length
+                ? topSkus.map(([sku, qty]) => `<div class="flex justify-between gap-3 rounded-lg bg-slate-50 dark:bg-slate-700/60 px-3 py-2"><span class="font-mono font-semibold">${sku.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}</span><span class="font-bold">${qty} шт.</span></div>`).join('')
+                : '<div class="text-slate-400 text-xs italic">Немає даних</div>';
         }
 
+        // Chart.js Implementation
+        function updateChart(counts) {
+            const ctx = document.getElementById('loadChart').getContext('2d');
+            const data = {
+                labels: ['Порожньо', '1 ящик', '2 ящики', 'Перевантаження'],
+                datasets: [{
+                    data: [counts.empty, counts.one, counts.two, counts.over],
+                    backgroundColor: [
+                        '#e2e8f0', // Empty (slate-200)
+                        '#93c5fd', // 1 box (blue-300)
+                        '#4ade80', // 2 boxes (emerald-400)
+                        '#facc15'  // Overload (amber-400)
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            };
+
+            const config = {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return ' ' + context.label + ': ' + context.parsed + ' місць'; }
+                            }
+                        }
+                    }
+                }
+            };
+
+            if (loadChartInstance) {
+                loadChartInstance.data = data;
+                loadChartInstance.update();
+            } else {
+                loadChartInstance = new Chart(ctx, config);
+            }
+            updateChartTheme();
+        }
+
+        function updateChartTheme() {
+            if(!loadChartInstance) return;
+            const isDark = document.documentElement.classList.contains('dark');
+            loadChartInstance.data.datasets[0].backgroundColor[0] = isDark ? '#334155' : '#e2e8f0'; // Adapt empty space color
+            loadChartInstance.update();
+        }
+
+        // Map Rendering Logic
         function renderMap() {
             const container = document.getElementById('mapContainer');
             container.innerHTML = '';
@@ -348,11 +781,11 @@
 
             for (let floor = 1; floor <= 2; floor++) {
                 const floorSection = document.createElement('div');
-                floorSection.className = 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-hidden';
+                floorSection.className = 'bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-4 sm:p-6 overflow-hidden transition-colors';
                 if (floor === 2) floorSection.classList.add('page-break');
 
                 const floorHeader = document.createElement('h2');
-                floorHeader.className = 'text-xl font-bold text-blue-900 mb-4 pb-2 border-b border-slate-200 uppercase';
+                floorHeader.className = 'text-xl font-bold text-blue-900 dark:text-blue-300 mb-4 pb-2 border-b border-slate-200 dark:border-slate-700 uppercase';
                 floorHeader.innerText = `${floor} поверх`;
                 floorSection.appendChild(floorHeader);
 
@@ -367,27 +800,29 @@
                     let island = hasIsland(floor, aisle);
 
                     const aisleBlock = document.createElement('div');
-                    aisleBlock.className = 'aisle-block flex items-stretch border border-slate-300 rounded-lg bg-slate-50 p-2 w-full';
+                    aisleBlock.className = 'aisle-block flex items-stretch border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900/50 p-2 w-max min-w-full';
 
                     const labelLeft = document.createElement('div');
-                    labelLeft.className = 'w-10 flex items-center justify-center font-bold text-lg text-slate-700 bg-slate-200 rounded mr-3 select-none';
+                    labelLeft.className = 'w-10 flex items-center justify-center font-black text-lg text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-700 rounded mr-3 select-none flex-shrink-0';
                     labelLeft.innerText = aisle;
                     aisleBlock.appendChild(labelLeft);
 
                     const rowsWrapper = document.createElement('div');
                     rowsWrapper.className = 'flex flex-col gap-1 w-full';
 
+                    // Header Row
                     const headerRow = document.createElement('div');
                     headerRow.className = 'flex gap-1';
                     for (let p = 1; p <= maxPos; p++) {
                         const hCell = document.createElement('div');
-                        hCell.className = 'w-7 h-5 flex items-center justify-center text-[10px] font-bold text-slate-500 bg-slate-200 rounded';
+                        hCell.className = 'w-7 h-5 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 rounded flex-shrink-0';
                         hCell.innerText = p < 10 ? '0' + p : p;
                         if (island && p === 4) hCell.classList.add('mr-6');
                         headerRow.appendChild(hCell);
                     }
                     rowsWrapper.appendChild(headerRow);
 
+                    // Tiers
                     for (let tier = TIERS; tier >= 1; tier--) {
                         const tierRow = document.createElement('div');
                         tierRow.className = 'flex gap-1 items-center';
@@ -402,34 +837,35 @@
                             let nonLiquid = (floor === 2 && (aisle === 'Q' || aisle === 'R'));
 
                             const cell = document.createElement('div');
-                            cell.className = 'w-7 h-7 flex items-center justify-center text-xs font-bold rounded transition cursor-pointer border select-none';
+                            cell.className = 'w-7 h-7 flex items-center justify-center text-xs font-bold rounded transition cursor-pointer border select-none flex-shrink-0';
                             cell.dataset.loc = origLoc;
                             cell.dataset.qty = qty;
                             cell.dataset.skus = skus;
                             cell.dataset.floor = floor;
                             cell.dataset.aisle = aisle;
                             cell.dataset.tier = tier;
+                            cell.dataset.key = key;
 
                             if (island && pos === 4) cell.classList.add('mr-6');
 
                             if (qty === 0) {
-                                cell.classList.add('bg-[#e2e8f0]', 'text-slate-400', 'border-slate-300', 'print-empty');
+                                cell.classList.add('bg-[#e2e8f0]', 'dark:bg-slate-700', 'text-slate-400', 'dark:text-slate-500', 'border-slate-300', 'dark:border-slate-600', 'print-empty', 'empty-cell');
                                 cell.innerText = '';
                             } else if (qty === 1) {
-                                cell.classList.add('bg-[#93c5fd]', 'text-blue-950', 'border-blue-300', 'print-one');
+                                cell.classList.add('bg-[#93c5fd]', 'dark:bg-blue-800', 'text-blue-950', 'dark:text-blue-100', 'border-blue-300', 'dark:border-blue-600', 'print-one');
                                 cell.innerText = '1';
                             } else if (qty === 2) {
                                 if (nonLiquid) {
-                                    cell.classList.add('bg-[#0f766e]', 'text-white', 'border-teal-900', 'print-nonliquid');
+                                    cell.classList.add('bg-[#0f766e]', 'dark:bg-teal-900', 'text-white', 'border-teal-900', 'print-nonliquid');
                                 } else {
-                                    cell.classList.add('bg-[#4ade80]', 'text-emerald-950', 'border-emerald-400', 'print-two');
+                                    cell.classList.add('bg-[#4ade80]', 'dark:bg-emerald-700', 'text-emerald-950', 'dark:text-emerald-100', 'border-emerald-400', 'dark:border-emerald-600', 'print-two');
                                 }
                                 cell.innerText = '2';
                             } else {
                                 if (nonLiquid) {
-                                    cell.classList.add('bg-[#0f766e]', 'text-white', 'border-teal-900', 'print-nonliquid');
+                                    cell.classList.add('bg-[#0f766e]', 'dark:bg-teal-900', 'text-white', 'border-teal-900', 'print-nonliquid');
                                 } else {
-                                    cell.classList.add('bg-[#facc15]', 'text-amber-950', 'border-amber-500', 'print-over');
+                                    cell.classList.add('bg-[#facc15]', 'dark:bg-amber-600', 'text-amber-950', 'dark:text-amber-100', 'border-amber-500', 'dark:border-amber-700', 'print-over');
                                 }
                                 cell.innerText = qty;
                             }
@@ -442,7 +878,7 @@
                         }
 
                         const tierLabel = document.createElement('div');
-                        tierLabel.className = 'ml-2 text-[10px] text-slate-500 font-semibold w-10 select-none';
+                        tierLabel.className = 'ml-2 text-[10px] text-slate-500 dark:text-slate-400 font-semibold w-10 select-none flex-shrink-0';
                         tierLabel.innerText = `Ярус ${tier}`;
                         tierRow.appendChild(tierLabel);
 
@@ -452,8 +888,8 @@
                     aisleBlock.appendChild(rowsWrapper);
                     aisleContainer.appendChild(aisleBlock);
 
-                    // Розрив сторінки рівно кожні 7 рядів
-                    if (globalAisleCount % 7 === 0) {
+                    // Page break exactly every 6 rows as requested for PDF
+                    if (globalAisleCount % 6 === 0) {
                         const breakDiv = document.createElement('div');
                         breakDiv.className = 'print-break-after';
                         aisleContainer.appendChild(breakDiv);
@@ -465,73 +901,41 @@
             }
         }
 
-        // Tooltip для ПК
-        const mapContainer = document.getElementById('mapContainer');
-        const tooltip = document.getElementById('tooltip');
-
-        mapContainer.addEventListener('mouseover', (e) => {
-            const cell = e.target.closest('[data-loc]');
-            if (!cell || window.innerWidth < 768) return;
-            let loc = cell.dataset.loc;
-            let qty = cell.dataset.qty;
-            let skus = cell.dataset.skus;
-
-            let html = `<strong>Локація: ${loc}</strong><br>Кількість: ${qty}`;
-            if (skus) {
-                if (skus.length > 120) skus = skus.substring(0, 120) + '…';
-                html += `<br>Артикули: ${skus}`;
-            }
-            tooltip.innerHTML = html;
-            tooltip.classList.remove('hidden');
-        });
-
-        mapContainer.addEventListener('mousemove', (e) => {
-            if (tooltip.classList.contains('hidden')) return;
-            tooltip.style.left = (e.clientX + 12) + 'px';
-            tooltip.style.top = (e.clientY + 12) + 'px';
-        });
-
-        mapContainer.addEventListener('mouseout', (e) => {
-            if (e.target.closest('[data-loc]')) {
-                tooltip.classList.add('hidden');
-            }
-        });
-
-        // Модальне вікно для мобільних
-        function showMobileModal(loc, qty, skus) {
-            if (window.innerWidth >= 768) return;
-            document.getElementById('modalTitle').innerText = `Локація: ${loc}`;
-            let content = `<div><strong>Кількість ящиків:</strong> ${qty}</div>`;
-            if (skus) {
-                content += `<div><strong>Артикули:</strong><br><span class="font-mono text-xs bg-slate-100 p-1 rounded block mt-1">${skus.split(', ').join('<br>')}</span></div>`;
-            } else {
-                content += `<div class="text-slate-400">Порожньо</div>`;
-            }
-            document.getElementById('modalContent').innerHTML = content;
-            document.getElementById('mobileModal').classList.remove('hidden');
-        }
-
-        function closeModal() {
-            document.getElementById('mobileModal').classList.add('hidden');
-        }
-
-        function searchSKU() {
-            const input = document.getElementById('searchInput').value.trim();
+        // Smart Search (Location or SKU)
+        function searchSmart() {
+            const input = document.getElementById('searchInput').value.trim().toUpperCase();
             clearHighlights();
             if (!input) return;
 
             let matchedCells = [];
-            const cells = document.querySelectorAll('[data-skus]');
-            cells.forEach(cell => {
-                const skus = cell.dataset.skus;
-                if (skus) {
-                    const skuList = skus.split(',').map(x => x.trim());
-                    if (skuList.includes(input)) {
-                        matchedCells.push(cell);
+            
+            // Check if input looks like a location (e.g. 2Q318, 1E12, 1E02)
+            const locRegex = /^[1-2][A-Z]\d{2,3}[A-Z]?$/;
+            let isLocationSearch = locRegex.test(input.replace(/[^A-Z0-9]/g, ''));
+
+            if (isLocationSearch) {
+                let parsed = parseRawLoc(input);
+                if (parsed) {
+                    const exactCell = document.querySelector(`[data-key="${parsed.key}"]`);
+                    if (exactCell) {
+                        matchedCells.push(exactCell);
                     }
                 }
-            });
+            } else {
+                // Search by SKU
+                const cells = document.querySelectorAll('[data-skus]');
+                cells.forEach(cell => {
+                    const skus = cell.dataset.skus;
+                    if (skus) {
+                        const skuList = skus.split(',').map(x => x.trim());
+                        if (skuList.includes(input)) {
+                            matchedCells.push(cell);
+                        }
+                    }
+                });
+            }
 
+            // Sort logic for navigation
             matchedCells.sort((a, b) => {
                 if (a.dataset.floor !== b.dataset.floor) return a.dataset.floor - b.dataset.floor;
                 if (a.dataset.aisle !== b.dataset.aisle) return b.dataset.aisle.localeCompare(a.dataset.aisle);
@@ -542,36 +946,68 @@
             currentSearchIndex = 0;
 
             if (matchedCells.length > 0) {
-                showMessage(`Знайдено ${matchedCells.length} локацій для артикулу ${input}`, 'success');
+                showMessage(`Знайдено ${matchedCells.length} збігів для "${input}"`, 'success');
                 document.getElementById('searchControls').classList.remove('hidden');
                 
                 matchedCells.forEach(cell => {
-                    cell.classList.add('ring-4', 'ring-cyan-400', 'scale-125', 'z-20', 'highlight-pulse');
+                    cell.classList.add('ring-4', 'ring-cyan-400', 'scale-125', 'highlight-pulse', 'z-20');
                 });
 
                 updateSearchNavigation();
                 scrollToCurrentSearch();
             } else {
-                showMessage(`Артикул "${input}" не знайдено на складі.`, 'error');
+                showMessage(`"${input}" не знайдено на складі.`, 'error');
                 document.getElementById('searchControls').classList.add('hidden');
             }
+        }
+
+        // Empty Spaces Finder
+        function findEmptySpaces() {
+            clearHighlights();
+            const aisleFilter = document.getElementById('emptySpaceAisle').value;
+            
+            let selector = '.empty-cell';
+            if (aisleFilter !== 'ALL') {
+                selector = `.empty-cell[data-aisle="${aisleFilter}"]`;
+            }
+            
+            const emptyCells = document.querySelectorAll(selector);
+            
+            if (emptyCells.length > 0) {
+                emptyCells.forEach(cell => {
+                    cell.classList.add('ring-2', 'ring-emerald-400', 'highlight-empty');
+                });
+                showMessage(`Знайдено ${emptyCells.length} порожніх комірок.`, 'success');
+                // Scroll to first one if filtering specific aisle
+                if(aisleFilter !== 'ALL') emptyCells[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                showMessage('Порожніх місць не знайдено за цим критерієм.', 'error');
+            }
+            
+            // Add clear button handler directly via search navigation UI
+            document.getElementById('searchControls').classList.remove('hidden');
+            document.getElementById('searchResults').innerHTML = `Режим: Порожні місця (${aisleFilter})`;
+            document.getElementById('searchNavInfo').parentElement.classList.add('hidden'); // hide next/prev for bulk empty
+            
+            // Override clear highlight button slightly
+            const closeBtn = document.querySelector('#searchControls button:last-child');
+            closeBtn.onclick = () => {
+                clearHighlights();
+                document.getElementById('searchNavInfo').parentElement.classList.remove('hidden'); // restore next/prev
+            };
         }
 
         function updateSearchNavigation() {
             if (currentSearchElements.length === 0) return;
             const el = currentSearchElements[currentSearchIndex];
-            document.getElementById('searchNavInfo').innerText = `${currentSearchIndex + 1} з ${currentSearchElements.length} (Локація: ${el.dataset.loc}, Ящиків: ${el.dataset.qty})`;
+            document.getElementById('searchNavInfo').innerText = `${currentSearchIndex + 1} з ${currentSearchElements.length}`;
+            document.getElementById('searchResults').innerHTML = `Локація: <span class="font-mono text-cyan-600 dark:text-cyan-300 font-bold ml-1">${el.dataset.loc}</span> (Ящиків: ${el.dataset.qty})`;
         }
 
         function scrollToCurrentSearch() {
             if (currentSearchElements.length === 0) return;
             const el = currentSearchElements[currentSearchIndex];
             el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-            el.animate([
-                { transform: 'scale(1)' },
-                { transform: 'scale(1.6)' },
-                { transform: 'scale(1)' }
-            ], { duration: 1000 });
         }
 
         function navigateSearchResult(direction) {
@@ -583,11 +1019,31 @@
             scrollToCurrentSearch();
         }
 
+        function focusLocation(loc) {
+            clearHighlights();
+            let parsed = parseRawLoc(loc);
+            if(parsed) {
+                const cell = document.querySelector(`[data-key="${parsed.key}"]`);
+                if(cell) {
+                    currentSearchElements = [cell];
+                    currentSearchIndex = 0;
+                    cell.classList.add('ring-4', 'ring-cyan-400', 'scale-125', 'highlight-pulse', 'z-20');
+                    document.getElementById('searchControls').classList.remove('hidden');
+                    updateSearchNavigation();
+                    scrollToCurrentSearch();
+                }
+            }
+        }
+
         function clearHighlights() {
-            document.querySelectorAll('.highlight-pulse').forEach(el => {
+            document.querySelectorAll('.highlight-pulse, .highlight-empty').forEach(el => {
                 el.classList.remove('ring-4', 'ring-cyan-400', 'scale-125', 'z-20', 'highlight-pulse');
             });
+            document.querySelectorAll('.empty-cell').forEach(el => {
+                el.classList.remove('ring-2', 'ring-emerald-400', 'highlight-empty');
+            });
             document.getElementById('searchControls').classList.add('hidden');
+            document.getElementById('searchNavInfo').parentElement.classList.remove('hidden'); // restore prev/next if it was hidden
             currentSearchElements = [];
         }
 
@@ -596,19 +1052,69 @@
             clearTimeout(messageTimer);
             const box = document.getElementById('messageBox');
             box.innerText = text;
-            box.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-red-50', 'text-red-800', 'border-red-200');
+            box.className = 'no-print mb-4 p-4 rounded-xl text-sm font-medium border transition-all'; // reset classes
             
             if (type === 'success') {
-                box.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+                box.classList.add('bg-emerald-50', 'dark:bg-emerald-900/30', 'text-emerald-800', 'dark:text-emerald-300', 'border-emerald-200', 'dark:border-emerald-800');
             } else {
-                box.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                box.classList.add('bg-red-50', 'dark:bg-red-900/30', 'text-red-800', 'dark:text-red-300', 'border-red-200', 'dark:border-red-800');
             }
 
+            box.classList.remove('hidden');
             messageTimer = setTimeout(() => {
                 box.classList.add('hidden');
             }, 6000);
         }
 
+        // PC Tooltip
+        const mapContainer = document.getElementById('mapContainer');
+        const tooltip = document.getElementById('tooltip');
+
+        mapContainer.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('[data-loc]');
+            if (!cell || window.innerWidth < 768) return;
+            let loc = cell.dataset.loc;
+            let qty = cell.dataset.qty;
+            let skus = cell.dataset.skus;
+
+            let html = `<strong>Локація: <span class="text-cyan-300">${loc}</span></strong><br>Кількість: ${qty}`;
+            if (skus) {
+                if (skus.length > 120) skus = skus.substring(0, 120) + '…';
+                html += `<br><span class="text-slate-300 mt-1 block">Артикули: ${skus}</span>`;
+            }
+            tooltip.innerHTML = html;
+            tooltip.classList.remove('hidden');
+        });
+
+        mapContainer.addEventListener('mousemove', (e) => {
+            if (tooltip.classList.contains('hidden')) return;
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+        });
+
+        mapContainer.addEventListener('mouseout', (e) => {
+            if (e.target.closest('[data-loc]')) tooltip.classList.add('hidden');
+        });
+
+        // Mobile Modal
+        function showMobileModal(loc, qty, skus) {
+            // Allow clicking on PC too for detailed view
+            document.getElementById('modalTitle').innerText = `Локація: ${loc}`;
+            let content = `<div><strong>Кількість ящиків:</strong> ${qty}</div>`;
+            if (skus) {
+                content += `<div class="mt-2"><strong>Артикули:</strong><br><span class="font-mono text-xs bg-slate-100 dark:bg-slate-700 p-2 rounded-lg block mt-1 leading-relaxed">${skus.split(', ').join('<br>')}</span></div>`;
+            } else {
+                content += `<div class="text-slate-400 mt-2">Порожньо</div>`;
+            }
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('mobileModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('mobileModal').classList.add('hidden');
+        }
+
+        // Backup Management
         function exportBackup() {
             const data = {
                 timestamp: new Date().toISOString(),
@@ -619,7 +1125,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `warehouse_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.download = `bader_warehouse_${new Date().toISOString().slice(0,10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
         }
@@ -631,69 +1137,147 @@
             reader.onload = function(e) {
                 try {
                     const parsed = JSON.parse(e.target.result);
-                    if (parsed.inventory && parsed.textarea) {
+                    if (parsed.inventory) {
                         if (confirm("Завантажити резервну копію? Поточні дані буде заміщено.")) {
                             inventoryData = parsed.inventory;
-                            document.getElementById('dataInput').value = parsed.textarea;
-                            localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
-                            localStorage.setItem('warehousePaste', parsed.textarea);
-                            
-                            renderMap();
-                            let filled = Object.keys(inventoryData).length;
-                            let boxes = 0;
-                            Object.values(inventoryData).forEach(i => boxes += i.qty);
-                            updateDashboard(filled, boxes);
+                            if(parsed.textarea) document.getElementById('dataInput').value = parsed.textarea;
+                            saveAndRender();
                             showMessage("Резервну копію успішно відновлено!", "success");
+                            document.getElementById('analyticsDashboard').classList.remove('hidden');
                         }
                     } else {
-                        alert("Невірний формат файлу резервної копії.");
+                        showMessage("Невірний формат файлу резервної копії.", "error");
                     }
                 } catch (err) {
-                    alert("Помилка читання JSON файлу.");
+                    showMessage("Помилка читання JSON файлу.", "error");
                 }
             };
             reader.readAsText(file);
         }
 
-        document.getElementById('searchInput').addEventListener('input', () => {
-            clearHighlights();
-            const val = document.getElementById('searchInput').value.trim();
-            if (val.length >= 6) {
-                searchSKU();
-            }
+        // Input Bindings
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            if (e.target.value.trim() === '') clearHighlights();
         });
-
+        
         document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') searchSKU();
+            if (e.key === 'Enter') searchSmart();
         });
 
         document.getElementById('dataInput').addEventListener('paste', () => {
             setTimeout(loadDataFromTextarea, 150);
         });
 
+        // Initialize App
         window.onload = function() {
+            initTheme();
             calcTotalCapacity();
+            
             const saved = localStorage.getItem('warehouseData');
             const paste = localStorage.getItem('warehousePaste');
             const ts = localStorage.getItem('warehouseTimestamp');
             
             if (saved) {
-                inventoryData = JSON.parse(saved);
-                if (paste) document.getElementById('dataInput').value = paste;
-                if (ts) {
-                    const d = new Date(ts);
-                    document.getElementById('update-time').innerText = `Збережено: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+                try {
+                    inventoryData = JSON.parse(saved);
+                    if (paste) document.getElementById('dataInput').value = paste;
+                    if (ts) {
+                        const d = new Date(ts);
+                        document.getElementById('update-time').innerText = `Збережено: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+                    }
+                    renderMap();
+                    updateAllDashboards();
+                } catch(e) {
+                    renderMap();
+                    updateAllDashboards();
                 }
-                let filledCount = Object.keys(inventoryData).length;
-                let totalBoxes = 0;
-                Object.values(inventoryData).forEach(item => { totalBoxes += item.qty; });
-                renderMap();
-                updateDashboard(filledCount, totalBoxes);
             } else {
                 renderMap();
-                updateDashboard(0, 0);
+                updateAllDashboards();
+                // Show data input area by default if empty
+                document.getElementById('dataInputArea').classList.remove('hidden');
             }
+            
+            // Auto-save interval (every 30 seconds)
+            setInterval(() => {
+                if(Object.keys(inventoryData).length > 0) {
+                    localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
+                }
+            }, 30000);
         };
+    </script>
+    
+    <!-- Firebase Real-time Sync -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'bader-warehouse-app';
+        let firebaseConfig = null;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch(e) { console.warn("Missing Firebase Config"); }
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            const db = getFirestore(app);
+            const auth = getAuth(app);
+            
+            const syncDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'warehouseState');
+            let isInitialSync = true;
+
+            const authenticate = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    console.log("Firebase Auth Success");
+                    setupSync();
+                } catch(err) {
+                    console.error("Firebase Auth Error", err);
+                }
+            };
+
+            const setupSync = () => {
+                if (!auth.currentUser) return;
+                
+                // Expose save function to global scope
+                window.notifyFirebaseSync = (data) => {
+                    const timestamp = Date.now();
+                    const payload = {
+                        lastUpdate: new Date(timestamp).toISOString(),
+                        lastUpdateMs: timestamp,
+                        payloadStr: JSON.stringify(data)
+                    };
+                    localStorage.setItem('warehouseLastUpdateMs', String(timestamp));
+                    setDoc(syncDocRef, payload).catch(err => console.error("Sync Error", err));
+                };
+
+                // Listen for changes
+                onSnapshot(syncDocRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const cloudData = docSnap.data();
+                        if (cloudData.payloadStr) {
+                            try {
+                                const parsedData = JSON.parse(cloudData.payloadStr);
+                                // Prevent overriding immediate local interactions, but sync if new
+                                if (Number(cloudData.lastUpdateMs || 0) >= Number(localStorage.getItem('warehouseLastUpdateMs') || 0)) {
+                                    window.setInventoryDataFromCloud(parsedData, Number(cloudData.lastUpdateMs || Date.now()));
+                                } // skip Firebase recursive call
+                                isInitialSync = false;
+                            } catch(e) { console.error(e); }
+                        }
+                    }
+                }, (error) => {
+                    console.error("Firebase snapshot error:", error);
+                });
+            };
+
+            authenticate();
+        }
     </script>
 </body>
 </html>
