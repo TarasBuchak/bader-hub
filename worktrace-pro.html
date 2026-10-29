@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <meta name="description" content="WorkTrace Pro — оперативний облік відміток і продуктивності зміни.">
+  <title>WorkTrace Pro — контроль зміни</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    :root { color-scheme: dark; --bg: #0b1120; --panel: rgba(20, 29, 49, .82); --line: rgba(148,163,184,.16); --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; color:#e5edf9; font-family:Inter,system-ui,sans-serif; background:radial-gradient(ellipse at 15% 0%,rgba(109,40,217,.20),transparent 38%),radial-gradient(ellipse at 92% 20%,rgba(37,99,235,.13),transparent 35%),var(--bg); }
+    button,input,select { font:inherit; }
+    button { -webkit-tap-highlight-color:transparent; }
+    .panel { background:var(--panel); border:1px solid var(--line); box-shadow:0 16px 40px rgba(0,0,0,.16); backdrop-filter:blur(14px); }
+    .soft-card { background:rgba(15,23,42,.74); border:1px solid rgba(148,163,184,.13); }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:42px; padding:.65rem .9rem; border:1px solid var(--line); border-radius:.8rem; font-weight:600; font-size:.88rem; transition:background .15s,border-color .15s,transform .15s; cursor:pointer; }
+    .btn:hover { transform:translateY(-1px); }
+    .btn:focus-visible,.status-btn:focus-visible,input:focus-visible,select:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
+    .btn-primary { color:#fff; background:#6d28d9; border-color:#8b5cf6; }
+    .btn-primary:hover { background:#7c3aed; }
+    .btn-blue { background:rgba(37,99,235,.13); color:#bfdbfe; border-color:rgba(96,165,250,.3); }
+    .btn-neutral { background:rgba(71,85,105,.2); color:#dbeafe; }
+    .btn-danger { background:rgba(220,38,38,.13); color:#fecaca; border-color:rgba(248,113,113,.28); }
+    .btn-sm { min-height:34px; padding:.4rem .65rem; font-size:.8rem; border-radius:.65rem; }
+    .field { width:100%; min-height:42px; padding:.7rem .85rem; color:#e5edf9; background:rgba(2,6,23,.48); border:1px solid rgba(148,163,184,.25); border-radius:.75rem; }
+    .field::placeholder { color:#718096; }
+    .stat { padding:1rem 1.1rem; border-radius:1rem; min-width:0; }
+    .stat-label { color:#94a3b8; font-size:.78rem; }
+    .stat-value { font:600 1.65rem 'JetBrains Mono',monospace; margin-top:.25rem; letter-spacing:-.04em; }
+    .employee-card { position:relative; overflow:hidden; border-top:3px solid #475569; transition:transform .16s,border-color .16s; }
+    .employee-card:hover { transform:translateY(-2px); }
+    .border-status-work { border-top-color:#22c55e; } .border-status-shipping { border-top-color:#60a5fa; } .border-status-break { border-top-color:#facc15; } .border-status-phone { border-top-color:#f87171; } .border-status-downtime { border-top-color:#fb923c; }
+    .status-btn { display:flex; align-items:center; justify-content:center; gap:.4rem; min-height:42px; border:1px solid transparent; border-radius:.7rem; padding:.5rem .15rem; transition:background .15s; cursor:pointer; }
+    .status-btn span { font-size:.72rem; }
+    .status-work { color:#86efac; background:rgba(34,197,94,.09); border-color:rgba(34,197,94,.20); } .status-work:hover { background:rgba(34,197,94,.20); }
+    .status-shipping { color:#93c5fd; background:rgba(59,130,246,.09); border-color:rgba(59,130,246,.20); } .status-shipping:hover { background:rgba(59,130,246,.20); }
+    .status-break { color:#fde047; background:rgba(234,179,8,.09); border-color:rgba(234,179,8,.20); } .status-break:hover { background:rgba(234,179,8,.20); }
+    .status-phone { color:#fca5a5; background:rgba(239,68,68,.09); border-color:rgba(239,68,68,.20); } .status-phone:hover { background:rgba(239,68,68,.20); }
+    .status-downtime { color:#fdba74; background:rgba(249,115,22,.09); border-color:rgba(249,115,22,.20); } .status-downtime:hover { background:rgba(249,115,22,.20); }
+    .tag { display:inline-flex; align-items:center; gap:.4rem; padding:.3rem .55rem; border-radius:999px; font-size:.75rem; border:1px solid var(--line); }
+    .tag.status-work { color:#86efac; background:rgba(34,197,94,.08); border-color:rgba(34,197,94,.22); } .tag.status-shipping { color:#93c5fd; background:rgba(59,130,246,.08); border-color:rgba(59,130,246,.22); } .tag.status-break { color:#fde047; background:rgba(234,179,8,.08); border-color:rgba(234,179,8,.22); } .tag.status-phone { color:#fca5a5; background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.22); } .tag.status-downtime { color:#fdba74; background:rgba(249,115,22,.08); border-color:rgba(249,115,22,.22); }
+    .muted { color:var(--muted); }
+    .modal-backdrop { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:1rem; background:rgba(2,6,23,.82); backdrop-filter:blur(7px); }
+    .modal-backdrop[hidden] { display:none !important; }
+    .modal-box { width:100%; max-height:90vh; overflow:auto; border-radius:1.1rem; }
+    .timeline-row { display:flex; gap:.85rem; align-items:center; padding:.85rem; border:1px solid rgba(148,163,184,.12); border-radius:.85rem; background:rgba(15,23,42,.55); }
+    .toast { position:fixed; z-index:100; right:1rem; bottom:1rem; max-width:min(92vw,440px); padding:.85rem 1rem; border:1px solid rgba(148,163,184,.25); border-radius:.9rem; background:#172033; box-shadow:0 12px 32px rgba(0,0,0,.35); }
+    .toast[hidden] { display:none !important; }
+    .toast.error { border-color:rgba(248,113,113,.55); } .toast.success { border-color:rgba(74,222,128,.45); }
+    .empty-state { padding:2.8rem 1rem; text-align:center; border:1px dashed rgba(148,163,184,.25); border-radius:1rem; color:#94a3b8; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.84rem; }
+    th,td { padding:.75rem .7rem; text-align:left; border-bottom:1px solid rgba(148,163,184,.12); white-space:nowrap; }
+    th { color:#94a3b8; font-weight:600; }
+    tr[data-emp] { cursor:pointer; } tr[data-emp]:hover { background:rgba(148,163,184,.08); } tr[data-emp].selected { background:rgba(139,92,246,.14); }
+    .mono { font-family:'JetBrains Mono',monospace; }
+    .chip { display:inline-flex; align-items:center; gap:.35rem; padding:.25rem .55rem; border-radius:999px; font-size:.72rem; background:rgba(148,163,184,.1); border:1px solid rgba(148,163,184,.15); }
+    @media(max-width:640px) { .status-btn span { display:none; } .status-btn { min-height:46px; } .stat-value { font-size:1.35rem; } .btn { padding:.6rem .7rem; font-size:.82rem; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body class="px-3 py-4 sm:px-5 sm:py-6">
+  <main class="mx-auto max-w-[1500px] space-y-5">
+    <header class="panel rounded-2xl p-4 sm:p-5">
+      <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-xl text-white shadow-lg shadow-violet-900/40"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
+          <div>
+            <h1 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">WorkTrace <span class="text-violet-300">Pro</span></h1>
+            <p class="mt-1 text-sm text-slate-400">Оперативний облік відміток і продуктивності зміни</p>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-neutral" id="add-employee-btn"><i class="fa-solid fa-user-plus" aria-hidden="true"></i><span>Працівник</span></button>
+          <button class="btn btn-blue" id="analytics-btn"><i class="fa-solid fa-chart-area" aria-hidden="true"></i><span>Аналітика</span></button>
+          <button class="btn btn-neutral" id="backup-btn" title="Створити локальну резервну копію та завантажити JSON"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>Резервна копія</span></button>
+          <button class="btn btn-neutral" id="export-btn"><i class="fa-solid fa-file-export" aria-hidden="true"></i><span>Експорт</span></button>
+          <button class="btn btn-neutral" id="import-btn"><i class="fa-solid fa-file-import" aria-hidden="true"></i><span>Імпорт</span></button>
+          <button class="btn btn-danger" id="end-shift-btn"><i class="fa-solid fa-power-off" aria-hidden="true"></i><span>Завершити зміну</span></button>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-2 gap-3 xl:grid-cols-5" aria-label="Підсумок поточної зміни">
+      <div class="panel stat"><div class="stat-label">Працівників</div><div id="stat-employees" class="stat-value">—</div></div>
+      <div class="panel stat"><div class="stat-label">Відміток у зміні</div><div id="stat-observations" class="stat-value">—</div></div>
+      <div class="panel stat"><div class="stat-label">Середній KPI</div><div id="stat-kpi" class="stat-value">—</div></div>
+      <div class="panel stat"><div class="stat-label">Тривалість зміни</div><div id="stat-duration" class="stat-value text-xl">—</div></div>
+      <div class="panel stat col-span-2 xl:col-span-1"><div class="stat-label">Остання відмітка</div><div id="stat-last" class="stat-value text-xl">—</div></div>
+    </section>
+
+    <section class="panel rounded-2xl p-4 sm:p-5">
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 class="text-lg font-bold text-white">Команда зміни</h2>
+          <p class="mt-1 text-sm text-slate-400">Натисніть статус, щоб зафіксувати спостереження. KPI — частка продуктивних відміток.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1fr)_160px_160px] lg:w-[560px]">
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true"></i>
+            <input class="field pl-9" type="search" id="search-input" placeholder="Знайти працівника… (/)" autocomplete="off">
+          </div>
+          <select class="field" id="status-filter">
+            <option value="">Усі статуси</option>
+            <option value="work">Робота</option>
+            <option value="shipping">Відвантаження</option>
+            <option value="break">Перерва</option>
+            <option value="phone">Телефон</option>
+            <option value="downtime">Простій</option>
+            <option value="none">Без відміток</option>
+          </select>
+          <select class="field" id="sort-select">
+            <option value="default">Початковий порядок</option>
+            <option value="name">За ім’ям</option>
+            <option value="kpi">KPI: від більшого</option>
+            <option value="activity">Остання активність</option>
+            <option value="observations">За кількістю відміток</option>
+          </select>
+        </div>
+      </div>
+      <div id="employee-grid" class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" aria-live="polite"></div>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <span id="employee-count-label">—</span>
+        <span id="storage-status">Дані зберігаються у цьому браузері</span>
+      </div>
+    </section>
+
+    <footer class="px-1 pb-2 text-xs leading-relaxed text-slate-500">
+      WorkTrace працює локально у вашому браузері. Для перенесення даних використовуйте резервну копію JSON. Не очищайте дані сайту, доки не створили копію.
+      <span class="ml-2 opacity-70">Клавіші: <kbd class="chip">/</kbd> пошук · <kbd class="chip">Esc</kbd> закрити</span>
+    </footer>
+  </main>
+
+  <input id="import-file" type="file" accept=".json,application/json" class="hidden" aria-label="Файл резервної копії JSON">
+
+  <!-- Details Modal -->
+  <section id="details-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="modal-emp-name">
+    <div class="panel modal-box max-w-2xl">
+      <div class="flex items-center justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
+        <div>
+          <h2 id="modal-emp-name" class="text-xl font-bold text-white">Працівник</h2>
+          <p class="mt-1 text-sm text-slate-400">Журнал відміток поточної зміни</p>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-sm btn-neutral" id="edit-name-btn" title="Редагувати ім’я"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-sm btn-danger" id="delete-employee-btn" title="Видалити працівника"><i class="fa-solid fa-trash"></i></button>
+          <button class="btn btn-neutral" data-close="details-modal" aria-label="Закрити"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div class="space-y-4 p-4 sm:p-5">
+        <div id="modal-emp-summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+        <div id="modal-status-breakdown" class="grid grid-cols-2 sm:grid-cols-5 gap-2"></div>
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold text-slate-200">Хронологія</h3>
+          <button class="btn btn-sm btn-neutral" id="undo-last-btn" title="Скасувати останню відмітку"><i class="fa-solid fa-rotate-left"></i> Скасувати останню</button>
+        </div>
+        <div id="modal-emp-timeline" class="max-h-[45vh] space-y-2 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Analytics Modal -->
+  <section id="analytics-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="analytics-title">
+    <div class="panel modal-box max-w-5xl">
+      <div class="flex items-center justify-between gap-3 border-b border-white/10 p-4 sm:p-5">
+        <div>
+          <h2 id="analytics-title" class="text-xl font-bold text-white"><i class="fa-solid fa-chart-area mr-2 text-blue-300"></i>Аналітика</h2>
+          <p class="mt-1 text-sm text-slate-400">Фактичні завершені зміни за останні 30 днів</p>
+        </div>
+        <button class="btn btn-neutral" data-close="analytics-modal" aria-label="Закрити"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="space-y-5 p-4 sm:p-5">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300" for="analytics-employee">Показати для</label>
+          <select class="field sm:max-w-sm" id="analytics-employee"></select>
+        </div>
+        <div id="analytics-summary" class="grid grid-cols-1 gap-3 sm:grid-cols-3"></div>
+        <div class="relative min-h-[280px] rounded-xl border border-white/10 bg-slate-950/30 p-2 sm:p-4">
+          <p id="chart-empty" class="hidden py-16 text-center text-sm text-slate-400">За цей період ще немає завершених змін.</p>
+          <canvas id="kpiChart" aria-label="Графік KPI за днями" role="img"></canvas>
+        </div>
+        <div>
+          <h3 class="mb-2 font-semibold text-slate-200">Статистика по працівниках (30 днів) <span class="text-xs font-normal text-slate-500">— натисніть рядок, щоб відкрити окремо</span></h3>
+          <div id="employee-stats-wrap" class="table-wrap rounded-xl border border-white/10"></div>
+        </div>
+        <div>
+          <h3 class="mb-2 font-semibold text-slate-200">Останні завершені зміни</h3>
+          <div id="history-table-wrap" class="table-wrap rounded-xl border border-white/10"></div>
+        </div>
+        <p class="text-xs leading-relaxed text-slate-500">Нові записи створюються лише під час завершення зміни. Статистика по працівниках доступна для змін, завершених у цій версії; старі записи без розбивки по людях враховуються лише в загальній аналітиці.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Add Employee Modal -->
+  <section id="add-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="add-title">
+    <div class="panel modal-box max-w-md">
+      <div class="flex items-center justify-between border-b border-white/10 p-4">
+        <h2 id="add-title" class="text-xl font-bold">Додати працівника</h2>
+        <button class="btn btn-neutral" data-close="add-modal" aria-label="Закрити"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="add-employee-form" class="space-y-4 p-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300" for="employee-name-input">Ім’я та прізвище</label>
+          <input class="field" id="employee-name-input" name="employeeName" maxlength="100" required autocomplete="name" placeholder="Наприклад, Іван Петренко">
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-neutral" data-close="add-modal">Скасувати</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i>Додати</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Edit Name Modal -->
+  <section id="edit-modal" class="modal-backdrop" hidden role="dialog" aria-modal="true">
+    <div class="panel modal-box max-w-md">
+      <div class="flex items-center justify-between border-b border-white/10 p-4">
+        <h2 class="text-xl font-bold">Редагувати ім’я</h2>
+        <button class="btn btn-neutral" data-close="edit-modal" aria-label="Закрити"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="edit-employee-form" class="space-y-4 p-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300" for="edit-name-input">Нове ім’я</label>
+          <input class="field" id="edit-name-input" maxlength="100" required>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-neutral" data-close="edit-modal">Скасувати</button>
+          <button type="submit" class="btn btn-primary">Зберегти</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script>
+    'use strict';
+
+    const STORAGE_KEY = 'workTraceSamplingV2';
+    const LEGACY_KEY = 'workTraceSamplingV1';
+    const BACKUPS_KEY = 'workTraceBackupsV2';
+    const AUTO_BACKUP_DAY_KEY = 'workTraceLastAutoBackupDayV2';
+    const UI_PREFS_KEY = 'workTraceUiPrefsV2';
+    const MAX_BACKUPS = 5;
+    const MAX_EMPLOYEES = 500;
+    const MAX_LOGS_PER_EMPLOYEE = 20000;
+    const MAX_HISTORY = 10000;
+
+    const INITIAL_TEAM = [
+      'Олег Синиця', 'Тарас Бучак', 'Святослав Войтухів', 'Олег Шепта',
+      'Роман Стефанишин', 'Олег Фостяк', 'Павло Брик', 'Олексій Мудрий',
+      'Юрій Городицький', 'Маркіян Шиманський'
+    ];
+
+    const STATUS_CONFIG = Object.freeze({
+      work:     { label: 'Робота', icon: 'fa-box', color: 'green', productive: true },
+      shipping: { label: 'Відвантаження', icon: 'fa-truck-fast', color: 'blue', productive: true },
+      break:    { label: 'Перерва', icon: 'fa-mug-hot', color: 'yellow', productive: false },
+      phone:    { label: 'Телефон', icon: 'fa-mobile-screen', color: 'red', productive: false },
+      downtime: { label: 'Простій', icon: 'fa-triangle-exclamation', color: 'orange', productive: false }
+    });
+
+    let state = null;
+    let chartInstance = null;
+    let toastTimer = null;
+    let activeDetailsEmployeeId = null;
+    let durationTimer = null;
+    let analyticsEmployee = '';
+
+    function makeId(prefix = 'id') {
+      try {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') return prefix + '_' + window.crypto.randomUUID();
+      } catch (_) {}
+      return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 11);
+    }
+
+    function localDateString(date = new Date()) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function parseLocalDate(value) {
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+      const [y, m, d] = value.split('-').map(Number);
+      const parsed = new Date(y, m - 1, d);
+      if (parsed.getFullYear() !== y || parsed.getMonth() !== m - 1 || parsed.getDate() !== d) return null;
+      return parsed;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    }
+
+    function formatTime(timestamp, includeDate = false) {
+      const date = new Date(timestamp);
+      if (!Number.isFinite(date.getTime())) return '—';
+      const time = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+      if (!includeDate) return time;
+      return `${new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)} ${time}`;
+    }
+
+    function formatDate(dateString) {
+      const d = parseLocalDate(dateString);
+      return d ? new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d) : '—';
+    }
+
+    function formatDuration(minutes) {
+      if (!Number.isFinite(minutes) || minutes < 0) return '—';
+      const total = Math.round(minutes);
+      const hours = Math.floor(total / 60);
+      const mins = total % 60;
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const h = hours % 24;
+        return `${days} д ${h} год ${mins} хв`;
+      }
+      return hours ? `${hours} год ${mins} хв` : `${mins} хв`;
+    }
+
+    function formatDurationShort(ms) {
+      if (!Number.isFinite(ms) || ms < 0) return '—';
+      const totalSec = Math.floor(ms / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      return `${m}:${String(s).padStart(2,'0')}`;
+    }
+
+    function validTimestamp(value) {
+      return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 8640000000000000;
+    }
+
+    function createInitialState() {
+      return {
+        schemaVersion: 2,
+        shiftStartedAt: Date.now(),
+        employees: INITIAL_TEAM.map(name => ({ id: makeId('emp'), name, logs: [] })),
+        history: []
+      };
+    }
+
+    function normalizeState(raw) {
+      const source = raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' ? raw.data : raw;
+      if (!source || typeof source !== 'object' || !Array.isArray(source.employees)) throw new Error('Структура даних не містить коректного списку працівників.');
+      if (source.employees.length > MAX_EMPLOYEES) throw new Error(`Забагато працівників: максимум ${MAX_EMPLOYEES}.`);
+      const seenIds = new Set();
+      const employees = source.employees.map((item, index) => {
+        if (!item || typeof item !== 'object') throw new Error(`Некоректний запис працівника №${index + 1}.`);
+        const name = typeof item.name === 'string' ? item.name.trim().slice(0, 100) : '';
+        if (!name) throw new Error(`У працівника №${index + 1} немає імені.`);
+        let id = typeof item.id === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(item.id) ? item.id : makeId('emp');
+        if (seenIds.has(id)) id = makeId('emp');
+        seenIds.add(id);
+        const rawLogs = Array.isArray(item.logs) ? item.logs : [];
+        if (rawLogs.length > MAX_LOGS_PER_EMPLOYEE) throw new Error(`Забагато відміток у працівника «${name}».`);
+        const logs = rawLogs.filter(log => log && typeof log === 'object' && STATUS_CONFIG[log.status] && validTimestamp(log.timestamp))
+          .map(log => ({ status: log.status, timestamp: log.timestamp }))
+          .sort((a, b) => a.timestamp - b.timestamp);
+        return { id, name, logs };
+      });
+
+      const rawHistory = Array.isArray(source.history) ? source.history : [];
+      if (rawHistory.length > MAX_HISTORY) throw new Error(`Забагато записів історії: максимум ${MAX_HISTORY}.`);
+      const history = rawHistory.filter(item => item && typeof item === 'object' && parseLocalDate(item.date) && Number.isFinite(Number(item.avgKpi)) && Number(item.avgKpi) >= 0 && Number(item.avgKpi) <= 100)
+        .map(item => ({
+          id: typeof item.id === 'string' ? item.id : makeId('shift'),
+          date: item.date,
+          endedAt: validTimestamp(item.endedAt) ? item.endedAt : (parseLocalDate(item.date).getTime()),
+          avgKpi: Math.round(Number(item.avgKpi)),
+          activeCount: Number.isFinite(Number(item.activeCount)) && Number(item.activeCount) >= 0 ? Math.floor(Number(item.activeCount)) : 1,
+          observations: Number.isFinite(Number(item.observations)) && Number(item.observations) >= 0 ? Math.floor(Number(item.observations)) : 0,
+          durationMinutes: Number.isFinite(Number(item.durationMinutes)) && Number(item.durationMinutes) >= 0 ? Number(item.durationMinutes) : null,
+          employees: Array.isArray(item.employees) ? item.employees.filter(e => e && typeof e.name === 'string').map(e => ({ id: String(e.id || ''), name: e.name.slice(0, 100), kpi: Math.max(0, Math.min(100, Math.round(Number(e.kpi) || 0))), total: Math.max(0, Math.floor(Number(e.total) || 0)) })) : []
+        }))
+        .sort((a, b) => a.endedAt - b.endedAt);
+      return {
+        schemaVersion: 2,
+        shiftStartedAt: validTimestamp(source.shiftStartedAt) ? source.shiftStartedAt : Date.now(),
+        employees,
+        history
+      };
+    }
+
+    function looksLikeLegacyDemoHistory(history) {
+      if (!Array.isArray(history) || history.length !== 7) return false;
+      const today = new Date();
+      const expected = [];
+      for (let ago = 7; ago >= 1; ago--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - ago);
+        expected.push(localDateString(d));
+      }
+      const sorted = [...history].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+      return sorted.every((item, i) => item && item.date === expected[i] && Number(item.avgKpi) >= 75 && Number(item.avgKpi) <= 95 && Object.keys(item).every(key => ['date', 'avgKpi'].includes(key)));
+    }
+
+    function loadState() {
+      let migrationMessage = '';
+      try {
+        const currentRaw = localStorage.getItem(STORAGE_KEY);
+        if (currentRaw) {
+          try {
+            state = normalizeState(JSON.parse(currentRaw));
+            return;
+          } catch (error) {
+            try { localStorage.setItem('workTraceRecoveryBackupV2', currentRaw); } catch (_) {}
+            migrationMessage = 'Збережені дані мали помилку структури. Старий вміст спробували зберегти для відновлення.';
+          }
+        }
+      } catch (_) {
+        migrationMessage = 'Браузер не дозволив прочитати локальне сховище.';
+      }
+
+      try {
+        const legacyRaw = localStorage.getItem(LEGACY_KEY);
+        if (legacyRaw) {
+          const legacy = JSON.parse(legacyRaw);
+          state = normalizeState(legacy);
+          if (looksLikeLegacyDemoHistory(legacy.history)) {
+            state.history = [];
+            migrationMessage = 'Виявлено сім початкових демонстраційних KPI зі старої версії. Їх прибрано з аналітики.';
+          } else if (!migrationMessage) {
+            migrationMessage = 'Дані попередньої версії перенесено. Перевірте історію та створіть резервну копію.';
+          }
+          saveState();
+        } else {
+          state = createInitialState();
+          saveState();
+        }
+      } catch (error) {
+        state = createInitialState();
+        try { saveState(); } catch (_) {}
+        migrationMessage = (migrationMessage ? migrationMessage + ' ' : '') + 'Не вдалося повністю прочитати старі дані; завантажено початковий список.';
+      }
+      if (migrationMessage) setTimeout(() => showToast(migrationMessage, 'error', 8500), 200);
+    }
+
+    function readBackups() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(BACKUPS_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) { return []; }
+    }
+
+    function addBackupSnapshot(snapshot, label = 'automatic') {
+      try {
+        const backups = readBackups();
+        backups.unshift({ savedAt: Date.now(), label, data: snapshot });
+        const unique = [];
+        const seen = new Set();
+        for (const item of backups) {
+          const marker = `${item.label}-${new Date(item.savedAt).toISOString().slice(0, 16)}-${JSON.stringify(item.data).length}`;
+          if (seen.has(marker)) continue;
+          seen.add(marker);
+          unique.push(item);
+          if (unique.length >= MAX_BACKUPS) break;
+        }
+        localStorage.setItem(BACKUPS_KEY, JSON.stringify(unique));
+        return true;
+      } catch (_) { return false; }
+    }
+
+    function saveState(options = {}) {
+      try {
+        const previousRaw = localStorage.getItem(STORAGE_KEY);
+        const today = localDateString();
+        let lastAutoBackupDay = '';
+        try { lastAutoBackupDay = localStorage.getItem(AUTO_BACKUP_DAY_KEY) || ''; } catch (_) {}
+        if (previousRaw && (options.forceBackup || lastAutoBackupDay !== today)) {
+          try {
+            const previous = normalizeState(JSON.parse(previousRaw));
+            addBackupSnapshot(previous, options.forceBackup ? 'before-change' : 'daily-auto');
+            localStorage.setItem(AUTO_BACKUP_DAY_KEY, today);
+          } catch (_) {}
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        const storageStatus = document.getElementById('storage-status');
+        if (storageStatus) storageStatus.textContent = 'Збережено локально · ' + formatTime(Date.now());
+        return true;
+      } catch (error) {
+        const storageStatus = document.getElementById('storage-status');
+        if (storageStatus) storageStatus.textContent = 'Помилка збереження — експортуйте дані';
+        showToast('Не вдалося зберегти дані в браузері. Експортуйте резервну копію.', 'error', 7000);
+        return false;
+      }
+    }
+
+    function saveUiPrefs() {
+      try {
+        localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
+          search: document.getElementById('search-input')?.value || '',
+          sort: document.getElementById('sort-select')?.value || 'default',
+          statusFilter: document.getElementById('status-filter')?.value || ''
+        }));
+      } catch (_) {}
+    }
+
+    function loadUiPrefs() {
+      try {
+        const prefs = JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}');
+        if (prefs.search) document.getElementById('search-input').value = prefs.search;
+        if (prefs.sort) document.getElementById('sort-select').value = prefs.sort;
+        if (prefs.statusFilter) document.getElementById('status-filter').value = prefs.statusFilter;
+      } catch (_) {}
+    }
+
+    function showToast(message, type = 'success', duration = 3500) {
+      const el = document.getElementById('toast');
+      if (!el) return;
+      el.textContent = message;
+      el.className = `toast ${type === 'error' ? 'error' : type === 'success' ? 'success' : ''}`;
+      el.hidden = false;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { el.hidden = true; }, duration);
+    }
+
+    function getEmployeeMetrics(employee) {
+      const logs = Array.isArray(employee.logs) ? employee.logs : [];
+      const total = logs.length;
+      const productive = logs.reduce((count, log) => count + (STATUS_CONFIG[log.status]?.productive ? 1 : 0), 0);
+      const kpi = total ? Math.round(productive / total * 100) : 0;
+      return { total, productive, kpi, lastLog: total ? logs[logs.length - 1] : null };
+    }
+
+    function getStatusDurations(employee) {
+      const logs = [...(employee.logs || [])].sort((a, b) => a.timestamp - b.timestamp);
+      const durations = { work: 0, shipping: 0, break: 0, phone: 0, downtime: 0 };
+      const counts = { work: 0, shipping: 0, break: 0, phone: 0, downtime: 0 };
+      for (let i = 0; i < logs.length; i++) {
+        const log = logs[i];
+        counts[log.status] = (counts[log.status] || 0) + 1;
+        const nextTs = i < logs.length - 1 ? logs[i + 1].timestamp : Date.now();
+        const mins = Math.max(0, (nextTs - log.timestamp) / 60000);
+        durations[log.status] = (durations[log.status] || 0) + mins;
+      }
+      return { durations, counts };
+    }
+
+    function kpiColor(kpi, total) {
+      if (!total) return 'text-slate-500';
+      if (kpi >= 85) return 'text-green-300';
+      if (kpi >= 70) return 'text-yellow-300';
+      return 'text-red-300';
+    }
+
+    function statusTag(status, timestamp) {
+      const config = STATUS_CONFIG[status];
+      if (!config) return '<span class="muted">Немає відміток</span>';
+      return `<span class="tag status-${escapeHtml(status)}"><i class="fa-solid ${config.icon}" aria-hidden="true"></i>${escapeHtml(config.label)} <span class="mono opacity-80">${escapeHtml(formatTime(timestamp))}</span></span>`;
+    }
+
+    function renderCard(employee) {
+      const metrics = getEmployeeMetrics(employee);
+      const latestStatus = metrics.lastLog && STATUS_CONFIG[metrics.lastLog.status] ? metrics.lastLog.status : '';
+      const statusHtml = metrics.lastLog ? statusTag(metrics.lastLog.status, metrics.lastLog.timestamp) : '<span class="tag text-slate-500"><i class="fa-regular fa-clock" aria-hidden="true"></i>Немає відміток</span>';
+      const buttons = Object.entries(STATUS_CONFIG).map(([key, config]) => `
+        <button type="button" class="status-btn status-${key}" data-action="observe" data-emp-id="${escapeHtml(employee.id)}" data-status="${key}" title="${escapeHtml(config.label)}" aria-label="${escapeHtml(employee.name)}: ${escapeHtml(config.label)}">
+          <i class="fa-solid ${config.icon}" aria-hidden="true"></i><span>${escapeHtml(config.label)}</span>
+        </button>`).join('');
+      return `
+        <article class="soft-card employee-card rounded-2xl p-4 border-status-${latestStatus || 'none'}" data-employee-card="${escapeHtml(employee.id)}">
+          <div class="flex items-start justify-between gap-3">
+            <button type="button" class="min-w-0 text-left" data-action="details" data-emp-id="${escapeHtml(employee.id)}" aria-label="Відкрити журнал: ${escapeHtml(employee.name)}">
+              <span class="block break-words text-base font-bold text-slate-100 hover:text-violet-300">${escapeHtml(employee.name)}</span>
+              <span class="mt-1 block text-xs text-slate-500">Журнал поточної зміни</span>
+            </button>
+            <div class="shrink-0 text-right"><div class="mono text-2xl font-semibold ${kpiColor(metrics.kpi, metrics.total)}">${metrics.total ? metrics.kpi + '%' : '—'}</div><div class="text-[10px] uppercase tracking-wider text-slate-500">KPI</div></div>
+          </div>
+          <div class="mt-4 min-h-[34px]">${statusHtml}</div>
+          <div class="mt-3 flex items-center justify-between gap-2 text-xs text-slate-400"><span>Відміток: <strong class="text-slate-200">${metrics.total}</strong></span><span>Продуктивних: <strong class="text-slate-200">${metrics.productive}</strong></span></div>
+          <div class="mt-4 grid grid-cols-5 gap-1.5">${buttons}</div>
+        </article>`;
+    }
+
+    function renderDashboard() {
+      const grid = document.getElementById('employee-grid');
+      if (!grid || !state) return;
+      const query = document.getElementById('search-input').value.trim().toLocaleLowerCase('uk-UA');
+      const sort = document.getElementById('sort-select').value;
+      const statusFilter = document.getElementById('status-filter').value;
+
+      let employees = state.employees.filter(emp => emp.name.toLocaleLowerCase('uk-UA').includes(query));
+
+      if (statusFilter) {
+        employees = employees.filter(emp => {
+          const metrics = getEmployeeMetrics(emp);
+          if (statusFilter === 'none') return !metrics.lastLog;
+          return metrics.lastLog && metrics.lastLog.status === statusFilter;
+        });
+      }
+
+      if (sort === 'name') employees.sort((a, b) => a.name.localeCompare(b.name, 'uk-UA'));
+      if (sort === 'kpi') employees.sort((a, b) => getEmployeeMetrics(b).kpi - getEmployeeMetrics(a).kpi || a.name.localeCompare(b.name, 'uk-UA'));
+      if (sort === 'activity') employees.sort((a, b) => (getEmployeeMetrics(b).lastLog?.timestamp || 0) - (getEmployeeMetrics(a).lastLog?.timestamp || 0));
+      if (sort === 'observations') employees.sort((a, b) => getEmployeeMetrics(b).total - getEmployeeMetrics(a).total || a.name.localeCompare(b.name, 'uk-UA'));
+
+      grid.innerHTML = employees.length
+        ? employees.map(renderCard).join('')
+        : `<div class="empty-state md:col-span-2 xl:col-span-3 2xl:col-span-4"><i class="fa-solid fa-users mb-3 text-2xl"></i><p>${query || statusFilter ? 'За вашим запитом працівників не знайдено.' : 'Список працівників порожній.'}</p><p class="mt-1 text-xs">${query || statusFilter ? 'Змініть фільтри.' : 'Додайте працівника, щоб почати облік.'}</p></div>`;
+
+      document.getElementById('employee-count-label').textContent = `Показано: ${employees.length} із ${state.employees.length}`;
+      updateSummary();
+      saveUiPrefs();
+      if (activeDetailsEmployeeId && !document.getElementById('details-modal').hidden) openDetailsModal(activeDetailsEmployeeId, false);
+    }
+
+    function updateSummary() {
+      const active = state.employees.map(emp => ({ emp, metrics: getEmployeeMetrics(emp) })).filter(item => item.metrics.total > 0);
+      const observations = active.reduce((sum, item) => sum + item.metrics.total, 0);
+      const avg = active.length ? Math.round(active.reduce((sum, item) => sum + item.metrics.kpi, 0) / active.length) : null;
+      const latest = state.employees.flatMap(emp => emp.logs.map(log => ({ ...log, employeeName: emp.name }))).sort((a, b) => b.timestamp - a.timestamp)[0];
+
+      document.getElementById('stat-employees').textContent = String(state.employees.length);
+      document.getElementById('stat-observations').textContent = String(observations);
+      const kpiElement = document.getElementById('stat-kpi');
+      kpiElement.textContent = avg === null ? '—' : `${avg}%`;
+      kpiElement.className = `stat-value ${avg === null ? 'text-slate-500' : kpiColor(avg, 1)}`;
+      document.getElementById('stat-last').textContent = latest ? formatTime(latest.timestamp) : '—';
+      document.getElementById('stat-last').title = latest ? `${latest.employeeName} · ${STATUS_CONFIG[latest.status]?.label || 'Статус'}` : 'Ще немає відміток';
+      updateDurationDisplay();
+    }
+
+    function updateDurationDisplay() {
+      const el = document.getElementById('stat-duration');
+      if (!el || !state) return;
+      const ms = Date.now() - state.shiftStartedAt;
+      el.textContent = formatDurationShort(ms);
+      el.title = `Зміна почалася: ${formatTime(state.shiftStartedAt, true)}`;
+    }
+
+    function addObservation(employeeId, status) {
+      const employee = state.employees.find(item => item.id === employeeId);
+      if (!employee || !STATUS_CONFIG[status]) return;
+      if (employee.logs.length >= MAX_LOGS_PER_EMPLOYEE) {
+        showToast(`Досягнуто ліміт відміток для ${employee.name}.`, 'error');
+        return;
+      }
+      employee.logs.push({ status, timestamp: Date.now() });
+      saveState();
+      renderDashboard();
+      if (!document.getElementById('details-modal').hidden && activeDetailsEmployeeId === employeeId) openDetailsModal(employeeId, false);
+    }
+
+    function undoLastObservation(employeeId) {
+      const employee = state.employees.find(item => item.id === employeeId);
+      if (!employee || !employee.logs.length) {
+        showToast('Немає відміток для скасування.', 'error');
+        return;
+      }
+      const last = employee.logs.pop();
+      saveState();
+      renderDashboard();
+      openDetailsModal(employeeId, false);
+      showToast(`Скасовано: ${STATUS_CONFIG[last.status]?.label || last.status}`, 'success');
+    }
+
+    function openDetailsModal(employeeId, focus = true) {
+      const employee = state.employees.find(item => item.id === employeeId);
+      if (!employee) return;
+      activeDetailsEmployeeId = employeeId;
+      const metrics = getEmployeeMetrics(employee);
+      const { durations, counts } = getStatusDurations(employee);
+
+      document.getElementById('modal-emp-name').textContent = employee.name;
+      document.getElementById('modal-emp-summary').innerHTML = `
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Відміток</div><div class="mono mt-1 text-xl font-semibold">${metrics.total}</div></div>
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">KPI</div><div class="mono mt-1 text-xl font-semibold ${kpiColor(metrics.kpi, metrics.total)}">${metrics.total ? metrics.kpi + '%' : '—'}</div></div>
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Продуктивних</div><div class="mono mt-1 text-xl font-semibold">${metrics.productive}</div></div>
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Непродуктивних</div><div class="mono mt-1 text-xl font-semibold">${metrics.total - metrics.productive}</div></div>`;
+
+      document.getElementById('modal-status-breakdown').innerHTML = Object.entries(STATUS_CONFIG).map(([key, config]) => {
+        const cnt = counts[key] || 0;
+        const mins = Math.round(durations[key] || 0);
+        return `<div class="soft-card rounded-lg p-2 text-center">
+          <div class="text-[11px] text-slate-400"><i class="fa-solid ${config.icon}"></i> ${escapeHtml(config.label)}</div>
+          <div class="mono text-sm font-semibold mt-1">${cnt} ×</div>
+          <div class="text-[10px] text-slate-500">${mins ? formatDuration(mins) : '—'}</div>
+        </div>`;
+      }).join('');
+
+      const timeline = document.getElementById('modal-emp-timeline');
+      const logs = [...employee.logs].sort((a, b) => b.timestamp - a.timestamp);
+      timeline.innerHTML = logs.length ? logs.map((log, idx) => {
+        const config = STATUS_CONFIG[log.status];
+        const nextOlder = logs[idx + 1];
+        const durationMs = nextOlder ? log.timestamp - nextOlder.timestamp : (Date.now() - log.timestamp);
+        const durationText = formatDuration(durationMs / 60000);
+        return `<div class="timeline-row">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-200"><i class="fa-solid ${config.icon}"></i></div>
+          <div class="min-w-0 flex-1">
+            <div class="font-medium text-slate-100">${escapeHtml(config.label)}</div>
+            <div class="mt-1 text-xs text-slate-400">${escapeHtml(formatTime(log.timestamp, true))} · ${durationText}</div>
+          </div>
+          <span class="tag ${config.productive ? 'text-green-300' : 'text-orange-200'}">${config.productive ? 'Продуктивна' : 'Непродуктивна'}</span>
+        </div>`;
+      }).join('') : '<div class="empty-state">Журнал відміток порожній.</div>';
+
+      document.getElementById('details-modal').hidden = false;
+      if (focus) document.querySelector('#details-modal [data-close]').focus();
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (!modal) return;
+      modal.hidden = true;
+      if (id === 'details-modal') activeDetailsEmployeeId = null;
+      if (id === 'analytics-modal' && chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    }
+
+    /* ---------- Аналітика: загальна та по працівниках ---------- */
+
+    // Джерело даних: уся команда або окремий працівник (його KPI з кожної завершеної зміни)
+    function historySource() {
+      if (!analyticsEmployee) return state.history;
+      return state.history.map(item => {
+        const e = (item.employees || []).find(x => x.id === analyticsEmployee);
+        return e ? { id: item.id, date: item.date, endedAt: item.endedAt, avgKpi: e.kpi, activeCount: 1, observations: e.total, durationMinutes: item.durationMinutes } : null;
+      }).filter(Boolean);
+    }
+
+    function fillEmployeeSelect() {
+      const names = new Map();
+      state.employees.forEach(e => names.set(e.id, e.name));
+      state.history.forEach(h => (h.employees || []).forEach(e => { if (e.id && !names.has(e.id)) names.set(e.id, e.name + ' (видалений)'); }));
+      if (analyticsEmployee && !names.has(analyticsEmployee)) analyticsEmployee = '';
+      const sel = document.getElementById('analytics-employee');
+      sel.innerHTML = '<option value="">Уся команда</option>' + [...names].sort((a, b) => a[1].localeCompare(b[1], 'uk-UA'))
+        .map(([id, n]) => `<option value="${escapeHtml(id)}">${escapeHtml(n)}</option>`).join('');
+      sel.value = analyticsEmployee;
+    }
+
+    function renderEmployeeStats(minDate) {
+      const today = localDateString();
+      const map = new Map();
+      state.employees.forEach(e => map.set(e.id, { id: e.id, name: e.name, pts: [] }));
+      state.history.filter(h => h.date >= minDate && h.date <= today).forEach(h => (h.employees || []).forEach(e => {
+        if (!e.id) return;
+        if (!map.has(e.id)) map.set(e.id, { id: e.id, name: e.name + ' (видалений)', pts: [] });
+        map.get(e.id).pts.push({ endedAt: h.endedAt, kpi: e.kpi, total: e.total });
+      }));
+      const rows = [...map.values()].map(r => {
+        r.pts.sort((a, b) => a.endedAt - b.endedAt);
+        const w = r.pts.reduce((s, p) => s + Math.max(1, p.total), 0);
+        const avg = r.pts.length ? Math.round(r.pts.reduce((s, p) => s + p.kpi * Math.max(1, p.total), 0) / w) : null;
+        const k = r.pts.map(p => p.kpi);
+        const emp = state.employees.find(e => e.id === r.id);
+        return { ...r, avg, obs: r.pts.reduce((s, p) => s + p.total, 0),
+          min: k.length ? Math.min(...k) : null, max: k.length ? Math.max(...k) : null,
+          trend: k.length >= 2 ? k[k.length - 1] - k[k.length - 2] : null,
+          cur: emp ? getEmployeeMetrics(emp) : null };
+      }).sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1) || a.name.localeCompare(b.name, 'uk-UA'));
+
+      const pct = v => v === null ? '<span class="muted">—</span>' : `<span class="mono ${kpiColor(v, 1)}">${v}%</span>`;
+      const trend = t => t === null ? '<span class="muted">—</span>'
+        : t > 0 ? `<span class="mono text-green-300">▲ +${t}</span>` : t < 0 ? `<span class="mono text-red-300">▼ ${t}</span>` : '<span class="mono muted">＝ 0</span>';
+      document.getElementById('employee-stats-wrap').innerHTML = rows.length
+        ? `<table><thead><tr><th>Працівник</th><th>Змін</th><th>Відміток</th><th>Сер. KPI</th><th>Мін</th><th>Макс</th><th>Тренд</th><th>Поточна зміна</th></tr></thead><tbody>${rows.map(r => `
+          <tr data-emp="${escapeHtml(r.id)}" class="${r.id === analyticsEmployee ? 'selected' : ''}">
+            <td class="font-semibold">${escapeHtml(r.name)}</td><td>${r.pts.length}</td><td>${r.obs}</td>
+            <td>${pct(r.avg)}</td><td>${pct(r.min)}</td><td>${pct(r.max)}</td><td>${trend(r.trend)}</td>
+            <td>${r.cur && r.cur.total ? pct(r.cur.kpi) + ' <span class="muted">(' + r.cur.total + ')</span>' : '<span class="muted">—</span>'}</td></tr>`).join('')}</tbody></table>`
+        : '<div class="empty-state m-3">Немає працівників.</div>';
+    }
+
+    function getDailyHistory(days = 30) {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - (days - 1));
+      const from = localDateString(cutoff);
+      const daily = new Map();
+      historySource().filter(item => item.date >= from && item.date <= localDateString(today)).forEach(item => {
+        const weight = Math.max(1, item.activeCount || 1);
+        const row = daily.get(item.date) || { date: item.date, weightedSum: 0, weight: 0, shifts: 0 };
+        row.weightedSum += item.avgKpi * weight;
+        row.weight += weight;
+        row.shifts += 1;
+        daily.set(item.date, row);
+      });
+      return [...daily.values()].sort((a, b) => a.date.localeCompare(b.date)).map(row => ({ date: row.date, avgKpi: Math.round(row.weightedSum / row.weight), shifts: row.shifts }));
+    }
+
+    function renderAnalytics() {
+      fillEmployeeSelect();
+      const since = new Date(); since.setHours(0, 0, 0, 0); since.setDate(since.getDate() - 29);
+      const minDate = localDateString(since);
+      const source = historySource();
+      const recent = source.filter(item => item.date >= minDate && item.date <= localDateString());
+      const observed = recent.reduce((sum, item) => sum + item.observations, 0);
+      const avg = recent.length ? Math.round(recent.reduce((sum, item) => sum + item.avgKpi * Math.max(1, item.activeCount || 1), 0) / recent.reduce((sum, item) => sum + Math.max(1, item.activeCount || 1), 0)) : null;
+      const selectedName = analyticsEmployee ? (document.getElementById('analytics-employee').selectedOptions[0]?.textContent || '') : '';
+
+      document.getElementById('analytics-summary').innerHTML = `
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Завершених змін</div><div class="mono mt-1 text-2xl font-semibold">${recent.length}</div></div>
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Середній KPI</div><div class="mono mt-1 text-2xl font-semibold ${avg === null ? 'text-slate-500' : kpiColor(avg, 1)}">${avg === null ? '—' : avg + '%'}</div></div>
+        <div class="soft-card rounded-xl p-3"><div class="text-xs text-slate-400">Зафіксованих відміток</div><div class="mono mt-1 text-2xl font-semibold">${observed}</div></div>`;
+
+      const chartEmpty = document.getElementById('chart-empty');
+      const canvas = document.getElementById('kpiChart');
+      if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+      const daily = getDailyHistory(30);
+      if (!daily.length || typeof window.Chart !== 'function') {
+        canvas.style.display = 'none';
+        chartEmpty.classList.remove('hidden');
+        chartEmpty.textContent = daily.length ? 'Бібліотека графіків недоступна.' : (analyticsEmployee ? 'Для цього працівника ще немає завершених змін.' : 'За цей період ще немає завершених змін.');
+      } else {
+        canvas.style.display = 'block'; chartEmpty.classList.add('hidden');
+        chartInstance = new Chart(canvas.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels: daily.map(item => formatDate(item.date).slice(0, 5)),
+            datasets: [{
+              label: selectedName ? 'KPI: ' + selectedName : 'Середній KPI',
+              data: daily.map(item => item.avgKpi),
+              borderColor: '#a78bfa',
+              backgroundColor: 'rgba(139,92,246,.15)',
+              borderWidth: 2.5,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              fill: true,
+              tension: .25
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'index' },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `KPI: ${ctx.parsed.y}%` } } },
+            scales: {
+              y: { min: 0, max: 100, ticks: { callback: v => `${v}%` }, grid: { color: 'rgba(148,163,184,.12)' } },
+              x: { grid: { color: 'rgba(148,163,184,.08)' } }
+            }
+          }
+        });
+      }
+
+      renderEmployeeStats(minDate);
+
+      const table = document.getElementById('history-table-wrap');
+      const rows = [...source].sort((a, b) => b.endedAt - a.endedAt).slice(0, 15);
+      const activeHead = analyticsEmployee ? '' : '<th>Активних</th>';
+      table.innerHTML = rows.length
+        ? `<table><thead><tr><th>Дата</th><th>Час</th><th>KPI</th>${activeHead}<th>Відміток</th><th>Тривалість</th></tr></thead><tbody>${rows.map(item => `<tr><td>${escapeHtml(formatDate(item.date))}</td><td>${escapeHtml(formatTime(item.endedAt))}</td><td class="mono ${kpiColor(item.avgKpi, 1)}">${item.avgKpi}%</td>${analyticsEmployee ? '' : `<td>${item.activeCount}</td>`}<td>${item.observations}</td><td>${item.durationMinutes === null ? '—' : escapeHtml(formatDuration(item.durationMinutes))}</td></tr>`).join('')}</tbody></table>`
+        : `<div class="empty-state m-3">${analyticsEmployee ? 'Для цього працівника ще немає завершених змін.' : 'Історія з’явиться після першого завершення зміни.'}</div>`;
+    }
+
+    function endShift() {
+      const active = state.employees.map(emp => ({ emp, metrics: getEmployeeMetrics(emp) })).filter(item => item.metrics.total > 0);
+      if (!active.length) {
+        showToast('У поточній зміні немає відміток. Дані не очищено.', 'error');
+        return;
+      }
+      const count = active.reduce((sum, item) => sum + item.metrics.total, 0);
+      if (!window.confirm(`Завершити зміну?\n\nБуде збережено статистику ${active.length} активних працівників і ${count} відміток.\nПоточні відмітки буде очищено.`)) return;
+
+      const now = Date.now();
+      const average = Math.round(active.reduce((sum, item) => sum + item.metrics.kpi, 0) / active.length);
+      const record = {
+        id: makeId('shift'),
+        date: localDateString(new Date(now)),
+        endedAt: now,
+        avgKpi: average,
+        activeCount: active.length,
+        observations: count,
+        durationMinutes: Math.max(0, (now - state.shiftStartedAt) / 60000),
+        employees: active.map(({ emp, metrics }) => ({ id: emp.id, name: emp.name, kpi: metrics.kpi, total: metrics.total }))
+      };
+      state.history.push(record);
+      if (state.history.length > MAX_HISTORY) state.history = state.history.slice(-MAX_HISTORY);
+      state.employees.forEach(emp => { emp.logs = []; });
+      state.shiftStartedAt = now;
+      saveState({ forceBackup: true });
+      renderDashboard();
+      showToast(`Зміну завершено. Середній KPI: ${average}%. Збережено ${count} відміток.`, 'success', 5000);
+    }
+
+    function exportPayload() {
+      return { app: 'WorkTrace Pro', schemaVersion: 2, exportedAt: new Date().toISOString(), data: state };
+    }
+
+    function downloadJson(payload, prefix = 'worktrace') {
+      const json = JSON.stringify(payload, null, 2);
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${prefix}-${localDateString()}-${new Date().toTimeString().slice(0, 8).replaceAll(':', '-')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportData() {
+      try {
+        downloadJson(exportPayload(), 'worktrace-export');
+        showToast('Експорт JSON сформовано.', 'success');
+      } catch (_) {
+        showToast('Не вдалося створити файл експорту.', 'error');
+      }
+    }
+
+    function createBackupAndDownload() {
+      const ok = addBackupSnapshot(state, 'manual');
+      try {
+        downloadJson(exportPayload(), 'worktrace-backup');
+        showToast(ok ? 'Резервну копію збережено в браузері та завантажено.' : 'Файл завантажено. Внутрішнє копіювання не вдалося.', ok ? 'success' : 'error', 5000);
+      } catch (_) {
+        showToast(ok ? 'Копію збережено в браузері, але завантажити файл не вдалося.' : 'Не вдалося створити резервну копію.', 'error', 5000);
+      }
+    }
+
+    function validateImportPayload(payload) {
+      if (!payload || typeof payload !== 'object') throw new Error('Файл має бути JSON-об’єктом.');
+      if (payload.app && !String(payload.app).toLowerCase().includes('worktrace')) throw new Error('Файл не схожий на резервну копію WorkTrace.');
+      const candidate = payload.data && typeof payload.data === 'object' ? payload.data : payload;
+      if (!Array.isArray(candidate.employees)) throw new Error('У файлі не знайдено масив employees.');
+      if (candidate.employees.length > MAX_EMPLOYEES) throw new Error(`Максимум працівників: ${MAX_EMPLOYEES}.`);
+      if (candidate.history !== undefined && !Array.isArray(candidate.history)) throw new Error('Поле history має бути масивом.');
+      for (let i = 0; i < candidate.employees.length; i++) {
+        const employee = candidate.employees[i];
+        if (!employee || typeof employee !== 'object' || typeof employee.name !== 'string' || !employee.name.trim() || employee.name.length > 100) throw new Error(`Перевірте ім’я працівника №${i + 1}.`);
+        if (!Array.isArray(employee.logs)) throw new Error(`У працівника №${i + 1} поле logs має бути масивом.`);
+        if (employee.logs.length > MAX_LOGS_PER_EMPLOYEE) throw new Error(`Забагато відміток у працівника №${i + 1}.`);
+        for (let j = 0; j < employee.logs.length; j++) {
+          const log = employee.logs[j];
+          if (!log || !STATUS_CONFIG[log.status] || !validTimestamp(log.timestamp)) throw new Error(`Некоректна відмітка №${j + 1} у «${employee.name}».`);
+        }
+      }
+      if ((candidate.history || []).length > MAX_HISTORY) throw new Error(`Максимум записів історії: ${MAX_HISTORY}.`);
+      for (let i = 0; i < (candidate.history || []).length; i++) {
+        const item = candidate.history[i];
+        if (!item || !parseLocalDate(item.date) || !Number.isFinite(Number(item.avgKpi)) || Number(item.avgKpi) < 0 || Number(item.avgKpi) > 100) throw new Error(`Некоректний запис історії №${i + 1}.`);
+        for (const field of ['activeCount', 'observations']) if (item[field] !== undefined && (!Number.isFinite(Number(item[field])) || Number(item[field]) < 0)) throw new Error(`Некоректне поле ${field} у записі №${i + 1}.`);
+      }
+      return normalizeState(candidate);
+    }
+
+    async function importFile(file) {
+      if (!file) return;
+      if (file.size > 15 * 1024 * 1024) { showToast('Файл завеликий (макс. 15 МБ).', 'error'); return; }
+      try {
+        const text = await file.text();
+        let payload;
+        try { payload = JSON.parse(text); } catch (_) { throw new Error('Файл не є коректним JSON.'); }
+        const imported = validateImportPayload(payload);
+        const importLogs = imported.employees.reduce((sum, emp) => sum + emp.logs.length, 0);
+        const description = `Працівників: ${imported.employees.length}; відміток: ${importLogs}; історії: ${imported.history.length}.`;
+        if (!window.confirm(`Імпортувати дані та замінити поточний список?\n${description}\nПеред заміною буде створено резервну копію.`)) return;
+        addBackupSnapshot(state, 'before-import');
+        state = imported;
+        const saved = saveState();
+        renderDashboard();
+        if (!saved) showToast('Імпорт прочитано, але сховище не підтвердило збереження. Експортуйте негайно.', 'error', 7000);
+        else showToast(`Імпорт успішний. ${description}`, 'success', 5000);
+      } catch (error) {
+        showToast(`Імпорт відхилено: ${error.message || 'невідома помилка'}`, 'error', 7000);
+      } finally {
+        document.getElementById('import-file').value = '';
+      }
+    }
+
+    function addEmployee(name) {
+      const cleanName = String(name || '').trim().replace(/\s+/g, ' ');
+      if (!cleanName) { showToast('Вкажіть ім’я працівника.', 'error'); return false; }
+      if (cleanName.length > 100) { showToast('Ім’я має містити не більше 100 символів.', 'error'); return false; }
+      if (state.employees.length >= MAX_EMPLOYEES) { showToast(`Досягнуто ліміт ${MAX_EMPLOYEES} працівників.`, 'error'); return false; }
+      if (state.employees.some(emp => emp.name.toLocaleLowerCase('uk-UA') === cleanName.toLocaleLowerCase('uk-UA'))) {
+        showToast('Працівник із таким ім’ям уже є у списку.', 'error');
+        return false;
+      }
+      state.employees.push({ id: makeId('emp'), name: cleanName, logs: [] });
+      saveState();
+      document.getElementById('search-input').value = '';
+      document.getElementById('sort-select').value = 'default';
+      document.getElementById('status-filter').value = '';
+      renderDashboard();
+      return true;
+    }
+
+    function editEmployeeName(employeeId, newName) {
+      const employee = state.employees.find(e => e.id === employeeId);
+      if (!employee) return false;
+      const cleanName = String(newName || '').trim().replace(/\s+/g, ' ');
+      if (!cleanName) { showToast('Вкажіть ім’я.', 'error'); return false; }
+      if (cleanName.length > 100) { showToast('Максимум 100 символів.', 'error'); return false; }
+      if (state.employees.some(emp => emp.id !== employeeId && emp.name.toLocaleLowerCase('uk-UA') === cleanName.toLocaleLowerCase('uk-UA'))) {
+        showToast('Працівник із таким ім’ям уже існує.', 'error');
+        return false;
+      }
+      employee.name = cleanName;
+      saveState();
+      renderDashboard();
+      openDetailsModal(employeeId, false);
+      showToast('Ім’я оновлено.', 'success');
+      return true;
+    }
+
+    function deleteEmployee(employeeId) {
+      const employee = state.employees.find(e => e.id === employeeId);
+      if (!employee) return;
+      const metrics = getEmployeeMetrics(employee);
+      const msg = metrics.total
+        ? `Видалити «${employee.name}»?\nУ нього є ${metrics.total} відміток у поточній зміні. Їх буде втрачено.`
+        : `Видалити «${employee.name}»?`;
+      if (!window.confirm(msg)) return;
+      state.employees = state.employees.filter(e => e.id !== employeeId);
+      saveState({ forceBackup: true });
+      closeModal('details-modal');
+      renderDashboard();
+      showToast(`Працівника «${employee.name}» видалено.`, 'success');
+    }
+
+    function bindEvents() {
+      document.getElementById('employee-grid').addEventListener('click', event => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const employeeId = button.dataset.empId;
+        if (button.dataset.action === 'observe') addObservation(employeeId, button.dataset.status);
+        if (button.dataset.action === 'details') openDetailsModal(employeeId);
+      });
+
+      document.getElementById('search-input').addEventListener('input', renderDashboard);
+      document.getElementById('sort-select').addEventListener('change', renderDashboard);
+      document.getElementById('status-filter').addEventListener('change', renderDashboard);
+
+      document.getElementById('analytics-btn').addEventListener('click', () => {
+        renderAnalytics();
+        document.getElementById('analytics-modal').hidden = false;
+        document.querySelector('#analytics-modal [data-close]').focus();
+      });
+      document.getElementById('analytics-employee').addEventListener('change', e => { analyticsEmployee = e.target.value; renderAnalytics(); });
+      document.getElementById('employee-stats-wrap').addEventListener('click', e => {
+        const tr = e.target.closest('tr[data-emp]');
+        if (!tr) return;
+        analyticsEmployee = analyticsEmployee === tr.dataset.emp ? '' : tr.dataset.emp;
+        renderAnalytics();
+      });
+      document.getElementById('end-shift-btn').addEventListener('click', endShift);
+      document.getElementById('export-btn').addEventListener('click', exportData);
+      document.getElementById('backup-btn').addEventListener('click', createBackupAndDownload);
+      document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+      document.getElementById('import-file').addEventListener('change', event => importFile(event.target.files && event.target.files[0]));
+
+      document.getElementById('add-employee-btn').addEventListener('click', () => {
+        document.getElementById('add-modal').hidden = false;
+        document.getElementById('employee-name-input').focus();
+      });
+      document.getElementById('add-employee-form').addEventListener('submit', event => {
+        event.preventDefault();
+        if (addEmployee(document.getElementById('employee-name-input').value)) {
+          document.getElementById('add-employee-form').reset();
+          closeModal('add-modal');
+          showToast('Працівника додано.', 'success');
+        }
+      });
+
+      document.getElementById('edit-name-btn').addEventListener('click', () => {
+        if (!activeDetailsEmployeeId) return;
+        const emp = state.employees.find(e => e.id === activeDetailsEmployeeId);
+        if (!emp) return;
+        document.getElementById('edit-name-input').value = emp.name;
+        document.getElementById('edit-modal').hidden = false;
+        document.getElementById('edit-name-input').focus();
+      });
+      document.getElementById('edit-employee-form').addEventListener('submit', event => {
+        event.preventDefault();
+        if (editEmployeeName(activeDetailsEmployeeId, document.getElementById('edit-name-input').value)) {
+          closeModal('edit-modal');
+        }
+      });
+      document.getElementById('delete-employee-btn').addEventListener('click', () => {
+        if (activeDetailsEmployeeId) deleteEmployee(activeDetailsEmployeeId);
+      });
+      document.getElementById('undo-last-btn').addEventListener('click', () => {
+        if (activeDetailsEmployeeId) undoLastObservation(activeDetailsEmployeeId);
+      });
+
+      document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => closeModal(button.dataset.close)));
+      document.querySelectorAll('.modal-backdrop').forEach(modal => modal.addEventListener('click', event => {
+        if (event.target === modal) closeModal(modal.id);
+      }));
+
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+          const open = [...document.querySelectorAll('.modal-backdrop')].find(m => !m.hidden);
+          if (open) closeModal(open.id);
+        }
+        if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          const tag = document.activeElement?.tagName;
+          if (tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            event.preventDefault();
+            document.getElementById('search-input').focus();
+          }
+        }
+      });
+    }
+
+    function init() {
+      loadState();
+      loadUiPrefs();
+      bindEvents();
+      renderDashboard();
+      durationTimer = setInterval(updateDurationDisplay, 1000);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
