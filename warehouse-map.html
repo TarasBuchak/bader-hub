@@ -58,12 +58,10 @@
 
         /* Print Styles */
         @media print {
-            /* Регулювання заповнення по висоті: якщо 6 рядів НЕ вміщуються —
-               зменшіть --cell-h та --head-h; якщо лишається білий низ — збільшуйте. */
             :root {
                 --cell-h: 11.5mm;   /* висота комірки */
-                --head-h: 6mm;   /* висота рядка номерів позицій */
-                --row-gap: 5mm;    /* відступ між рядами */
+                --head-h: 6mm;      /* висота рядка номерів позицій */
+                --row-gap: 5mm;     /* відступ між рядами */
             }
 
             body { background: white !important; margin: 0 !important; padding: 0 !important; color: black !important; }
@@ -78,7 +76,6 @@
 
             .bg-white, .dark\:bg-slate-800 { background: white !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
 
-            /* Вся ширина аркуша, без масштабування */
             #mapContainer { width: 100% !important; max-width: 100% !important; overflow: visible !important; background: white !important; margin: 0 !important; }
             #mapContainer > div { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
 
@@ -88,18 +85,13 @@
                 page-break-inside: avoid !important; break-inside: avoid !important;
             }
 
-            /* Підпис "Ярус N" приховати */
             .aisle-block .ml-2 { display: none !important; }
-
-            /* Ліва буква ряду */
             .aisle-block .w-10 { width: 14mm !important; flex-shrink: 0 !important; font-size: 20px !important; }
 
-            /* Рядки на всю ширину */
             .aisle-block .flex.gap-1 { width: 100% !important; }
             .aisle-block .w-7 { flex: 1 1 0% !important; width: auto !important; min-width: 0 !important; height: var(--cell-h) !important; font-size: 14px !important; }
             .aisle-block .h-5 { flex: 1 1 0% !important; width: auto !important; min-width: 0 !important; height: var(--head-h) !important; font-size: 10px !important; }
 
-            /* Рівно 6 рядів на сторінку */
             .print-break-after { display: block !important; page-break-after: always !important; break-after: page !important; margin: 0; padding: 0; border: none; height: 0; }
 
             .print-empty { background-color: #ffffff !important; border: 1px dashed #cbd5e1 !important; color: #e2e8f0 !important; }
@@ -257,7 +249,6 @@
                         <div class="flex gap-2">
                             <select id="emptySpaceAisle" class="flex-1 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-2 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
                                 <option value="ALL">Всі ряди</option>
-                                <!-- Populated in JS -->
                             </select>
                             <button onclick="findEmptySpaces()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition shadow">Показати</button>
                         </div>
@@ -269,7 +260,6 @@
             <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <h3 class="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">📦 Статистика заповненості по рядах</h3>
                 <div id="rowStatsContainer" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                    <!-- Populated via JS -->
                 </div>
             </div>
             <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
@@ -283,7 +273,7 @@
             </div>
         </div>
 
-        <!-- Data Input Area (Hidden by default to save space, toggled from stats) -->
+        <!-- Data Input Area -->
         <div id="dataInputArea" class="no-print hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 mb-6 transition-all">
             <div class="flex justify-between items-center mb-2">
                 <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200">Вставка даних з Excel (Колонки: Локація, Артикул):</h2>
@@ -315,7 +305,6 @@
 
         <!-- Quick Summary Block -->
         <div id="quickSummaryBlock" class="no-print bg-slate-800 dark:bg-slate-950 text-white rounded-xl shadow-lg border border-slate-700 p-3 mb-6 flex flex-wrap items-center justify-around gap-4 text-sm font-semibold hidden">
-            <!-- Injected via JS -->
         </div>
 
         <!-- Map controls -->
@@ -357,16 +346,14 @@
         let inventoryData = {};
         window.inventoryData = inventoryData;
         let totalCapacityVal = 0;
-        let aisleCapacity = {}; // { R: 96, Q: 96... }
+        let aisleCapacity = {};
         let currentSearchElements = [];
         let currentSearchIndex = 0;
         let loadChartInstance = null;
         let top10SortMode = 'qty';
 
-        // Notify global sync
         window.notifyFirebaseSync = null;
 
-        // Export PNG functionality
         function exportMapImage(btn = null) {
             const mapEl = document.getElementById('mapContainer');
             btn = btn || document.querySelector('button[onclick^="exportMapImage"]');
@@ -399,7 +386,7 @@
             Object.values(inventoryData).forEach(item => {
                 rows.push([item.originalLoc, item.floor, item.aisle, item.tier, item.pos, item.qty, (item.skus || []).join('; ')]);
             });
-            const csv = '\\uFEFF' + rows.map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(';')).join('\\r\\n');
+            const csv = '\uFEFF' + rows.map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
             const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -427,12 +414,11 @@
             if (window.notifyFirebaseSync) window.notifyFirebaseSync(inventoryData);
         }
 
-        // Dark Mode Logic
         function toggleTheme() {
             const isDark = document.documentElement.classList.toggle('dark');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
             document.getElementById('themeIcon').innerText = isDark ? '☀️' : '🌙';
-            updateChartTheme(); // Update chart colors
+            updateChartTheme();
         }
 
         function initTheme() {
@@ -446,13 +432,11 @@
             }
         }
 
-        // Dashboard Toggle
         function toggleAnalytics() {
             const dash = document.getElementById('analyticsDashboard');
             dash.classList.toggle('hidden');
         }
 
-        // Warehouse Logic
         function getMaxPosition(floor, aisle) {
             if (floor === 1) {
                 if (["Q", "P", "O", "N", "M", "L"].includes(aisle)) return 28;
@@ -474,7 +458,6 @@
             aisleCapacity = {};
             AISLES.forEach(a => { aisleCapacity[a] = 0; });
             
-            // Populate select for empty spaces
             const selectAisle = document.getElementById('emptySpaceAisle');
             selectAisle.innerHTML = '<option value="ALL">Всі ряди</option>';
             AISLES.forEach(a => {
@@ -601,7 +584,6 @@
                         <div>📋 Дублі: <span class="font-bold text-blue-600 dark:text-blue-400">${importStats.dupe}</span></div>
                     </div>
                 `;
-                // Open dashboard automatically on import to show nice graphs
                 document.getElementById('analyticsDashboard').classList.remove('hidden');
             }
             
@@ -611,7 +593,6 @@
             window.inventoryData = inventoryData;
         }
 
-        // Bridge for the Firebase module: update the same lexical inventoryData variable.
         window.setInventoryDataFromCloud = function(data, cloudTimestamp) {
             if (!data || typeof data !== 'object' || Array.isArray(data)) return;
             inventoryData = data;
@@ -622,7 +603,6 @@
             window._firebaseInitialSyncDone = true;
         };
 
-        // Advanced Analytics Updates
         function updateAllDashboards() {
             let filledCount = Object.keys(inventoryData).length;
             let emptyCount = totalCapacityVal - filledCount;
@@ -645,7 +625,6 @@
                 else if (item.qty === 2) counts.two++;
                 else if (item.qty > 2) counts.over++;
 
-                // Problem Rules
                 if (item.qty > 2 || (isNonLiquid && item.qty > 1)) {
                     problems.push(item);
                 }
@@ -654,18 +633,15 @@
             let overloadedCount = allLocs.filter(i => i.qty > 2).length;
             let nonLiquidCount = allLocs.filter(i => i.floor === 2 && (i.aisle === 'Q' || i.aisle === 'R') && i.qty > 1).length;
 
-            // 1. Basic Stats
             document.getElementById('stat-filled').innerText = filledCount;
             document.getElementById('stat-empty').innerText = counts.empty;
             document.getElementById('stat-boxes').innerText = totalBoxes;
             let pct = totalCapacityVal > 0 ? (filledCount / totalCapacityVal) * 100 : 0;
             document.getElementById('stat-percent').innerText = pct.toFixed(1) + '%';
             
-            // Header Info Sync
             const d = new Date();
             document.getElementById('update-time').innerText = `Оновлено: ${d.toLocaleDateString()} ${d.toLocaleTimeString().slice(0,5)} | Даних: ${filledCount} локації | Ящиків: ${totalBoxes}`;
 
-            // Quick Summary Block Update
             const qSummary = document.getElementById('quickSummaryBlock');
             qSummary.innerHTML = `
                 <div class="flex items-center gap-1 text-emerald-400">📦 Вільно: <span class="text-white">${counts.empty}</span> місць</div>
@@ -676,10 +652,8 @@
             `;
             qSummary.classList.remove('hidden');
 
-            // 2. Chart.js
             updateChart(counts);
 
-            // 3. Top 10
             let top10 = [...allLocs];
             if (top10SortMode === 'qty') top10.sort((a,b) => b.qty - a.qty);
             else if (top10SortMode === 'row') top10.sort((a,b) => a.aisle.localeCompare(b.aisle));
@@ -693,7 +667,6 @@
             });
             document.getElementById('topLocationsList').innerHTML = topHtml;
 
-            // 4. Problems
             problems.sort((a,b) => b.qty - a.qty);
             let probHtml = problems.length ? '' : '<div class="text-emerald-500 text-xs italic font-bold">✅ Все в нормі</div>';
             problems.forEach(item => {
@@ -702,7 +675,6 @@
             });
             document.getElementById('problemCellsList').innerHTML = probHtml;
 
-            // 5. Row Stats (Heatmap)
             let rowHtml = '';
             AISLES.forEach(a => {
                 let cap = aisleCapacity[a];
@@ -748,7 +720,6 @@
                 : '<div class="text-slate-400 text-xs italic">Немає даних</div>';
         }
 
-        // Chart.js Implementation
         function updateChart(counts) {
             const ctx = document.getElementById('loadChart').getContext('2d');
             const data = {
@@ -756,10 +727,10 @@
                 datasets: [{
                     data: [counts.empty, counts.one, counts.two, counts.over],
                     backgroundColor: [
-                        '#e2e8f0', // Empty (slate-200)
-                        '#93c5fd', // 1 box (blue-300)
-                        '#4ade80', // 2 boxes (emerald-400)
-                        '#facc15'  // Overload (amber-400)
+                        '#e2e8f0',
+                        '#93c5fd',
+                        '#4ade80',
+                        '#facc15'
                     ],
                     borderWidth: 0,
                     hoverOffset: 4
@@ -796,11 +767,11 @@
         function updateChartTheme() {
             if(!loadChartInstance) return;
             const isDark = document.documentElement.classList.contains('dark');
-            loadChartInstance.data.datasets[0].backgroundColor[0] = isDark ? '#334155' : '#e2e8f0'; // Adapt empty space color
+            loadChartInstance.data.datasets[0].backgroundColor[0] = isDark ? '#334155' : '#e2e8f0';
             loadChartInstance.update();
         }
 
-        // Map Rendering Logic
+        /* Map Rendering Logic (Оновлено: розмежування стелажів по 4 складомісця) */
         function renderMap() {
             const container = document.getElementById('mapContainer');
             container.innerHTML = '';
@@ -845,7 +816,16 @@
                         const hCell = document.createElement('div');
                         hCell.className = 'w-7 h-5 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200 dark:bg-slate-700 rounded flex-shrink-0';
                         hCell.innerText = p < 10 ? '0' + p : p;
-                        if (island && p === 4) hCell.classList.add('mr-6');
+
+                        // Відступи для відокремлення стелажів по 4 складомісця
+                        if (p < maxPos) {
+                            if (island && p === 4) {
+                                hCell.classList.add('mr-7'); // Прохід для острова
+                            } else if (p % 4 === 0) {
+                                hCell.classList.add('mr-2.5'); // Розділювач стелажів
+                            }
+                        }
+
                         headerRow.appendChild(hCell);
                     }
                     rowsWrapper.appendChild(headerRow);
@@ -874,7 +854,14 @@
                             cell.dataset.tier = tier;
                             cell.dataset.key = key;
 
-                            if (island && pos === 4) cell.classList.add('mr-6');
+                            // Відступи для відокремлення стелажів по 4 складомісця
+                            if (pos < maxPos) {
+                                if (island && pos === 4) {
+                                    cell.classList.add('mr-7'); // Прохід для острова
+                                } else if (pos % 4 === 0) {
+                                    cell.classList.add('mr-2.5'); // Розділювач стелажів
+                                }
+                            }
 
                             if (qty === 0) {
                                 cell.classList.add('bg-[#e2e8f0]', 'dark:bg-slate-700', 'text-slate-400', 'dark:text-slate-500', 'border-slate-300', 'dark:border-slate-600', 'print-empty', 'empty-cell');
@@ -916,7 +903,6 @@
                     aisleBlock.appendChild(rowsWrapper);
                     aisleContainer.appendChild(aisleBlock);
 
-                    // Page break exactly every 6 rows as requested for PDF
                     if (globalAisleCount % 6 === 0 && globalAisleCount > 0) {
                         const breakDiv = document.createElement('div');
                         breakDiv.className = 'print-break-after';
@@ -937,7 +923,6 @@
 
             let matchedCells = [];
             
-            // Check if input looks like a location (e.g. 2Q318, 1E12, 1E02)
             const locRegex = /^[1-2][A-Z]\d{2,3}[A-Z]?$/;
             let isLocationSearch = locRegex.test(input.replace(/[^A-Z0-9]/g, ''));
 
@@ -950,7 +935,6 @@
                     }
                 }
             } else {
-                // Search by SKU
                 const cells = document.querySelectorAll('[data-skus]');
                 cells.forEach(cell => {
                     const skus = cell.dataset.skus;
@@ -963,7 +947,6 @@
                 });
             }
 
-            // Sort logic for navigation
             matchedCells.sort((a, b) => {
                 if (a.dataset.floor !== b.dataset.floor) return a.dataset.floor - b.dataset.floor;
                 if (a.dataset.aisle !== b.dataset.aisle) return b.dataset.aisle.localeCompare(a.dataset.aisle);
@@ -989,7 +972,6 @@
             }
         }
 
-        // Empty Spaces Finder
         function findEmptySpaces() {
             clearHighlights();
             const aisleFilter = document.getElementById('emptySpaceAisle').value;
@@ -1006,22 +988,19 @@
                     cell.classList.add('ring-2', 'ring-emerald-400', 'highlight-empty');
                 });
                 showMessage(`Знайдено ${emptyCells.length} порожніх комірок.`, 'success');
-                // Scroll to first one if filtering specific aisle
                 if(aisleFilter !== 'ALL') emptyCells[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             } else {
                 showMessage('Порожніх місць не знайдено за цим критерієм.', 'error');
             }
             
-            // Add clear button handler directly via search navigation UI
             document.getElementById('searchControls').classList.remove('hidden');
             document.getElementById('searchResults').innerHTML = `Режим: Порожні місця (${aisleFilter})`;
-            document.getElementById('searchNavInfo').parentElement.classList.add('hidden'); // hide next/prev for bulk empty
+            document.getElementById('searchNavInfo').parentElement.classList.add('hidden');
             
-            // Override clear highlight button slightly
             const closeBtn = document.querySelector('#searchControls button:last-child');
             closeBtn.onclick = () => {
                 clearHighlights();
-                document.getElementById('searchNavInfo').parentElement.classList.remove('hidden'); // restore next/prev
+                document.getElementById('searchNavInfo').parentElement.classList.remove('hidden');
             };
         }
 
@@ -1071,7 +1050,7 @@
                 el.classList.remove('ring-2', 'ring-emerald-400', 'highlight-empty');
             });
             document.getElementById('searchControls').classList.add('hidden');
-            document.getElementById('searchNavInfo').parentElement.classList.remove('hidden'); // restore prev/next if it was hidden
+            document.getElementById('searchNavInfo').parentElement.classList.remove('hidden');
             currentSearchElements = [];
         }
 
@@ -1080,7 +1059,7 @@
             clearTimeout(messageTimer);
             const box = document.getElementById('messageBox');
             box.innerText = text;
-            box.className = 'no-print mb-4 p-4 rounded-xl text-sm font-medium border transition-all'; // reset classes
+            box.className = 'no-print mb-4 p-4 rounded-xl text-sm font-medium border transition-all';
             
             if (type === 'success') {
                 box.classList.add('bg-emerald-50', 'dark:bg-emerald-900/30', 'text-emerald-800', 'dark:text-emerald-300', 'border-emerald-200', 'dark:border-emerald-800');
@@ -1126,7 +1105,6 @@
 
         // Mobile Modal
         function showMobileModal(loc, qty, skus) {
-            // Allow clicking on PC too for detailed view
             document.getElementById('modalTitle').innerText = `Локація: ${loc}`;
             let content = `<div><strong>Кількість ящиків:</strong> ${qty}</div>`;
             if (skus) {
@@ -1222,11 +1200,9 @@
             } else {
                 renderMap();
                 updateAllDashboards();
-                // Show data input area by default if empty
                 document.getElementById('dataInputArea').classList.remove('hidden');
             }
             
-            // Auto-save interval (every 30 seconds)
             setInterval(() => {
                 if(Object.keys(inventoryData).length > 0) {
                     localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
@@ -1272,7 +1248,6 @@
             const setupSync = () => {
                 if (!auth.currentUser) return;
                 
-                // Expose save function to global scope
                 window.notifyFirebaseSync = (data) => {
                     const timestamp = Date.now();
                     const payload = {
@@ -1284,17 +1259,15 @@
                     setDoc(syncDocRef, payload).catch(err => console.error("Sync Error", err));
                 };
 
-                // Listen for changes
                 onSnapshot(syncDocRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const cloudData = docSnap.data();
                         if (cloudData.payloadStr) {
                             try {
                                 const parsedData = JSON.parse(cloudData.payloadStr);
-                                // Prevent overriding immediate local interactions, but sync if new
                                 if (Number(cloudData.lastUpdateMs || 0) >= Number(localStorage.getItem('warehouseLastUpdateMs') || 0)) {
                                     window.setInventoryDataFromCloud(parsedData, Number(cloudData.lastUpdateMs || Date.now()));
-                                } // skip Firebase recursive call
+                                }
                                 isInitialSync = false;
                             } catch(e) { console.error(e); }
                         }
