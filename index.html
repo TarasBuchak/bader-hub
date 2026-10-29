@@ -23,7 +23,7 @@
 </head>
 <body class="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-900 to-slate-800">
 
-    <div class="max-w-5xl w-full">
+    <div class="max-w-6xl w-full">
         <!-- Шапка -->
         <header class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-4">
@@ -33,7 +33,7 @@
         </header>
 
         <!-- Сітка додатків -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
             
             <!-- Картка 1: Карта складу -->
             <a href="warehouse-map.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
@@ -62,7 +62,16 @@
                 <p class="text-sm text-slate-400">Планувальник комплектації (SAP FIFO), підбір замовлень COOIS та Звіти дефіциту.</p>
             </a>
 
-            <!-- Картка 4: WorkTrace Pro (Із захистом паролем) -->
+            <!-- Картка 4: WMSdin strit (Нова) -->
+            <a href="WMSdin_strit.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
+                <div class="w-16 h-16 rounded-full bg-cyan-900/50 flex items-center justify-center mb-4 group-hover:bg-cyan-600/50 transition-colors border border-cyan-500/30">
+                    <i class="fas fa-warehouse text-2xl text-cyan-400 group-hover:text-cyan-200"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">WMSdin strit</h2>
+                <p class="text-sm text-slate-400">Система управління складом (WMS) для контролю рядів, стелажів та переміщень.</p>
+            </a>
+
+            <!-- Картка 5: WorkTrace Pro (Із захистом паролем) -->
             <div onclick="openPasswordModal()" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
                 <div class="w-16 h-16 rounded-full bg-amber-900/50 flex items-center justify-center mb-4 group-hover:bg-amber-600/50 transition-colors border border-amber-500/30">
                     <i class="fas fa-shield-alt text-2xl text-amber-400 group-hover:text-amber-200"></i>
