@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WMS DIN + STRIT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>tailwind.config={darkMode:'class'}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f1f5f9;--card:#fff;--fg:#0f172a;--mut:#64748b;--bd:#e2e8f0;--emp:#d1d5db}
+html.dark{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--bd:#334155;--emp:#475569}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:.75rem;padding:1rem}
+.btn{padding:.4rem .75rem;border-radius:.5rem;background:#2563eb;color:#fff;font-size:.85rem;cursor:pointer;white-space:nowrap}
+.btn2{background:var(--card);color:var(--fg);border:1px solid var(--bd)}
+.btn.red{background:#dc2626}
+.cell{height:2rem;width:2.4rem;border-radius:.3rem;font-size:.65rem;color:#fff;border:0;cursor:pointer}
+.c-ok{background:#16a34a}.c-bad{background:#dc2626}.c-buf{background:#facc15;color:#422006}
+.c-bufe{background:#fef9c3;color:#422006;border:1px dashed #eab308}.c-task{background:#f97316}.c-emp{background:var(--emp)}
+.hl{outline:3px solid #3b82f6;outline-offset:1px;transform:scale(1.15);position:relative;z-index:2}
+table.t{width:100%;font-size:.8rem}.t th,.t td{padding:.35rem .5rem;border-bottom:1px solid var(--bd);text-align:left}
+.t th{position:sticky;top:0;background:var(--card)}
+.tab{padding:.5rem 1rem;border-bottom:2px solid transparent;white-space:nowrap;cursor:pointer}
+.tab.on{border-color:#2563eb;color:#2563eb;font-weight:600}
+input,select{background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:.5rem;padding:.4rem .6rem}
+#modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;z-index:50;padding:1rem}
+.mut{color:var(--mut)}
+.pal{cursor:pointer;border:1px solid var(--bd);border-radius:.6rem;padding:.6rem;background:var(--card)}
+.chip{display:inline-block;background:#2563eb22;border-radius:.4rem;padding:0 .35rem;margin:1px;font-size:.7rem}
+.onlyprint{display:none}
+.drop{border:2px dashed var(--bd);border-radius:.75rem;padding:1.2rem;text-align:center;cursor:pointer;display:block}
+.drop.over{border-color:#2563eb;background:#2563eb11}
+@media print{
+  :root,html.dark{--bg:#fff;--card:#fff;--fg:#000;--bd:#999;--mut:#333}
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{position:absolute;left:0;top:0;width:100%;border:0;max-height:none!important;overflow:visible!important;padding:0}
+  .noprint{display:none!important}
+  .onlyprint{display:block}
+  td.onlyprint{display:table-cell}
+  .t th{position:static}
+  .t td,.t th{font-size:11px;padding:3px 5px;border:1px solid #999}
+  tr{page-break-inside:avoid}
+  thead{display:table-header-group}
+}
+.lg span{display:inline-block;width:.8rem;height:.8rem;border-radius:.2rem;margin:0 .3rem 0 .8rem;vertical-align:middle}
+</style>
+</head>
+<body>
+<header class="sticky top-0 z-40 card !rounded-none flex flex-wrap items-center gap-2">
+  <h1 class="font-bold text-lg mr-2">📦 WMS DIN + STRIT</h1>
+  <input id="q" placeholder="Пошук: артикул / комірка / палета" class="flex-1 min-w-[180px]">
+  <span id="sinfo" class="text-xs mut"></span>
+  <button class="btn" data-dm>⚙ Встановлення даних</button>
+  <button class="btn btn2" id="bExp">Експорт JSON</button>
+  <label class="btn btn2 cursor-pointer">Імпорт JSON<input id="fj" type="file" accept=".json" hidden></label>
+  <button class="btn red" id="bClr">Очистити дані</button>
+  <button class="btn btn2" id="bTh">🌓</button>
+</header>
+<nav class="flex overflow-x-auto border-b" style="border-color:var(--bd)" id="nav">
+  <div class="tab on" data-tab="dash">Головна</div><div class="tab" data-tab="din">Карта DIN</div>
+  <div class="tab" data-tab="strit">Карта STRIT</div><div class="tab" data-tab="pal">Палети</div>
+  <div class="tab" data-tab="tasks">Задачі</div><div class="tab" data-tab="an">Аналітика</div>
+</nav>
+<main class="p-3 md:p-5 max-w-[1600px] mx-auto">
+  <section id="v-dash">
+    <div id="kpi" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
+    <div class="grid md:grid-cols-3 gap-3">
+      <div class="card"><h3 class="font-semibold mb-2">Завантаження складу</h3><canvas id="c1"></canvas></div>
+      <div class="card"><h3 class="font-semibold mb-2">Топ артикулів</h3><canvas id="c2"></canvas></div>
+      <div class="card"><h3 class="font-semibold mb-2">FIFO статус</h3><canvas id="c3"></canvas></div>
+    </div>
+    <p id="empty" class="mt-4 mut"></p>
+  </section>
+  <section id="v-din" hidden></section>
+  <section id="v-strit" hidden></section>
+  <section id="v-pal" hidden></section>
+  <section id="v-tasks" hidden></section>
+  <section id="v-an" hidden></section>
+</main>
+<div id="modal"><div class="card max-w-xl w-full max-h-[85vh] overflow-auto" id="mbody"></div></div>
+
+<script>
+const $=s=>document.querySelector(s),pad=n=>String(n).padStart(2,'0'),P=n=>822000+n;
+const LS='wms_state_v1';
+// ---- Конфіг секцій (план артикулів по комірках) ----
+const CFG=[
+ {id:'1Q',wh:'DIN',pos:[1,37],buf:p=>p>=33,plan:p=>P(p<=6?813:p<=12?812:p<=17?811:p<=22?810:809)},
+ {id:'1E',wh:'DIN',pos:[17,24],plan:()=>P(808)},
+ {id:'S',wh:'STRIT',pos:[1,16],plan:(p,l)=>{const b=p>=13?0:p>=9?1:p>=5?2:3;return P((l<=2?[876,874,873,806]:[807,805,804,875])[b])}},
+ {id:'T',wh:'STRIT',pos:[1,16],buf:p=>p<=8,plan:p=>P(p>=13?802:871)},
+ {id:'1F',wh:'STRIT',pos:[17,24],plan:p=>P(p>=21?803:872)}
+];
+let S=(()=>{try{return JSON.parse(localStorage.getItem(LS))}catch(e){}})()||{stock:{},pallets:{},itasks:[],log:[]};
+let R={cells:[],tasks:[],art:{}},Q='',charts={},tf='gen';
+const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
+const log=m=>{S.log.unshift({t:new Date().toLocaleString('uk-UA'),m});S.log=S.log.slice(0,300)};
+const dk=d=>{if(!d)return 99999999;const[a,b,c]=d.split('.');return +c*10000+ +b*100+ +a};
+const eq=(a,b)=>String(a)===String(b);
+function toDate(v){
+  if(v==null||v==='')return null;
+  if(typeof v==='number'){const o=XLSX.SSF.parse_date_code(v);return o?pad(o.d)+'.'+pad(o.m)+'.'+o.y:null}
+  if(v instanceof Date)return pad(v.getDate())+'.'+pad(v.getMonth()+1)+'.'+v.getFullYear();
+  const s=String(v).trim();let m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);if(m)return pad(m[1])+'.'+pad(m[2])+'.'+m[3];
+  m=s.match(/^(\d{4})-(\d\d)-(\d\d)/);return m?m[3]+'.'+m[2]+'.'+m[1]:null}
+
+// ---- Перерахунок складу + FIFO + задачі ----
+function recalc(){
+  const cells=[],map={};
+  const add=(c,l,p)=>{const code=c.id+l+pad(p)+'A',buf=!!(c.buf&&c.buf(p)),items=S.stock[code]||[];
+    const o={code,sec:c.id,wh:c.wh,l,p,buf,plan:buf?null:c.plan(p,l),items,art:items[0]&&items[0].art,date:items[0]&&items[0].date};cells.push(o);map[code]=o};
+  CFG.forEach(c=>{for(let l=1;l<=4;l++)for(let p=c.pos[0];p<=c.pos[1];p++)add(c,l,p)});
+  Object.keys(S.stock).forEach(k=>{if(map[k])return;const c=CFG.find(c=>k.startsWith(c.id)&&/^\d{3}A$/.test(k.slice(c.id.length)));
+    if(c)add(c,+k[c.id.length],+k.slice(c.id.length+1,-1))});
+  const pal=[];Object.keys(S.pallets).forEach(p=>S.pallets[p].forEach(i=>pal.push({code:p,art:i.art,date:i.date})));
+  // статистика артикулів
+  const A={};const g=a=>A[a]||(A[a]={main:0,buf:0,pal:0,minMain:99999999,minOther:99999999,plan:0});
+  cells.forEach(c=>c.items.forEach(i=>{const a=g(i.art),d=dk(i.date);
+    if(c.buf){a.buf++;a.minOther=Math.min(a.minOther,d)}else{a.main++;a.minMain=Math.min(a.minMain,d)}}));
+  pal.forEach(i=>{const a=g(i.art);a.pal++;a.minOther=Math.min(a.minOther,dk(i.date))});
+  Object.values(A).forEach(a=>a.risk=a.main>0&&a.minOther<a.minMain);
+  // задачі
+  const T=[],mk=(from,art,date,to,type,pr)=>T.push({from,art,date,to,type,pr});
+  const fb=cells.filter(c=>c.buf&&!c.items.length);const tb=()=>{const c=fb.shift();return c?c.code:'—'};
+  let me=cells.filter(c=>!c.buf&&!c.items.length);
+  cells.filter(c=>!c.buf&&c.items.length&&!eq(c.art,c.plan)).forEach(c=>{
+    const k=me.findIndex(x=>eq(x.plan,c.art));
+    if(k>=0){mk(c.code,c.art,c.date,me[k].code,'Неправильне місце',1);me.splice(k,1)}
+    else mk(c.code,c.art,c.date,tb(),'Пересорт',1)});
+  cells.filter(c=>c.items.length>1).forEach(c=>c.items.slice(1).forEach(i=>mk(c.code,i.art,i.date,tb(),'Переповнення комірки',1)));
+  const src=[];cells.forEach(c=>{if(c.buf)c.items.forEach(i=>src.push({from:c.code,art:i.art,date:i.date}))});
+  pal.forEach(i=>src.push({from:i.code,art:i.art,date:i.date,pallet:1}));
+  src.sort((a,b)=>dk(a.date)-dk(b.date));
+  me.forEach(c=>{const s=src.find(x=>!x.used&&eq(x.art,c.plan));if(s){s.used=1;mk(s.from,s.art,s.date,c.code,'Поповнення основної комірки',2)}});
+  src.filter(s=>!s.used&&s.pallet&&A[s.art]&&A[s.art].main>0&&dk(s.date)<A[s.art].minMain&&fb.length)
+     .forEach(s=>mk(s.from,s.art,s.date,tb(),'Поповнення буфера',3));
+  T.sort((a,b)=>String(a.art).localeCompare(String(b.art))||dk(a.date)-dk(b.date));
+  const tgt=new Set(T.map(t=>t.to));
+  cells.forEach(c=>{c.st=c.buf?(c.items.length?'buf':'bufe'):c.items.length?(eq(c.art,c.plan)?'ok':'bad'):(tgt.has(c.code)?'task':'emp')});
+  R={cells,map,tasks:T,art:A,pal};
+}
+const cls={ok:'c-ok',bad:'c-bad',buf:'c-buf',bufe:'c-bufe',task:'c-task',emp:'c-emp'};
+const stTxt={ok:'Правильний артикул у своїй комірці',bad:'Неправильний артикул',buf:'Буфер (зайнято)',bufe:'Буфер (вільно)',task:'Порожня, є задача на переміщення',emp:'Порожня комірка'};
+const hit=c=>Q&&(c.code.includes(Q.toUpperCase())||c.items.some(i=>String(i.art).includes(Q)));
+
+// ---- Рендер ----
+function renderAll(){recalc();dash();map('din','DIN');map('strit','STRIT');pals();tasks();an();search()}
+function ch(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($('#'+id),cfg)}
+function dash(){
+  Chart.defaults.color=document.documentElement.classList.contains('dark')?'#cbd5e1':'#334155';
+  const w=n=>{const a=R.cells.filter(c=>c.wh===n);const o=a.filter(c=>c.items.length).length;return{t:a.length,o,f:a.length-o}};
+  const d=w('DIN'),s=w('STRIT'),pl=Object.keys(S.pallets).filter(k=>S.pallets[k].length).length;
+  const k=[['Заповненість DIN',(d.o/d.t*100||0).toFixed(1)+'%',d.o+' / '+d.t],['Заповненість STRIT',(s.o/s.t*100||0).toFixed(1)+'%',s.o+' / '+s.t],
+   ['Кількість палет',pl,R.pal.length+' од. на палетах'],['Вільні місця',d.f+s.f,'DIN '+d.f+' · STRIT '+s.f],['Активні задачі',R.tasks.length,'FIFO ризиків: '+Object.values(R.art).filter(a=>a.risk).length]];
+  $('#kpi').innerHTML=k.map(x=>`<div class="card"><div class="text-xs mut">${x[0]}</div><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs mut">${x[2]}</div></div>`).join('');
+  $('#empty').textContent=Object.keys(S.stock).length?'':'Дані відсутні. Натисніть «Завантажити XLSX/XLSM» і оберіть файл WMS.';
+  const secs=CFG.map(c=>c.id),oc=secs.map(i=>R.cells.filter(c=>c.sec===i&&c.items.length).length),fr=secs.map(i=>R.cells.filter(c=>c.sec===i&&!c.items.length).length);
+  ch('c1',{type:'bar',data:{labels:secs,datasets:[{label:'Зайнято',data:oc,backgroundColor:'#2563eb'},{label:'Вільно',data:fr,backgroundColor:'#94a3b8'}]},options:{scales:{x:{stacked:true},y:{stacked:true}}}});
+  const top=Object.entries(R.art).map(([a,v])=>[a,v.main+v.buf+v.pal]).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  ch('c2',{type:'bar',data:{labels:top.map(x=>x[0]),datasets:[{label:'Кількість',data:top.map(x=>x[1]),backgroundColor:'#16a34a'}]},options:{indexAxis:'y',plugins:{legend:{display:false}}}});
+  const rk=Object.values(R.art).filter(a=>a.risk).length,tot=Object.keys(R.art).length;
+  ch('c3',{type:'doughnut',data:{labels:['FIFO ок','FIFO ризик'],datasets:[{data:[tot-rk,rk],backgroundColor:['#16a34a','#dc2626']}]}});
+}
+function map(id,wh){
+  const legend=`<div class="lg text-xs mb-3"><span style="background:#16a34a"></span>правильно<span style="background:#dc2626"></span>неправильно<span style="background:#facc15"></span>буфер<span style="background:#f97316"></span>є задача<span style="background:var(--emp)"></span>порожньо</div>`;
+  let h=legend;
+  CFG.filter(c=>c.wh===wh).forEach(c=>{
+    const cs=R.cells.filter(x=>x.sec===c.id),ps=[...new Set(cs.map(x=>x.p))].sort((a,b)=>a-b);
+    h+=`<div class="card mb-3"><h3 class="font-semibold mb-2">Секція ${c.id} <span class="text-xs mut">поз. ${ps[0]}–${ps[ps.length-1]}${c.buf?' · буфер':''}</span></h3><div class="overflow-x-auto pb-2"><div class="inline-grid gap-1" style="grid-template-columns:2rem repeat(${ps.length},2.4rem)"><div></div>`+
+      ps.map(p=>`<div class="text-center text-[10px] mut">${pad(p)}</div>`).join('');
+    for(let l=4;l>=1;l--){h+=`<div class="text-xs mut self-center">L${l}</div>`+ps.map(p=>{const x=R.map[c.id+l+pad(p)+'A'];
+      return x?`<button class="cell ${cls[x.st]}" data-c="${x.code}" title="${x.code}">${x.art?String(x.art).slice(-3):''}</button>`:'<div></div>'}).join('')}
+    h+='</div></div></div>'});
+  $('#v-'+id).innerHTML=h;
+}
+function pals(){
+  let h='<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-7 gap-2">';
+  for(let i=1;i<=41;i++){const c='P'+pad(i),it=S.pallets[c]||[],by={};
+    it.forEach(x=>{const b=by[x.art]||(by[x.art]={n:0,m:99999999,d:null});b.n++;if(dk(x.date)<b.m){b.m=dk(x.date);b.d=x.date}});
+    const fifo=it.length?it.reduce((a,x)=>dk(x.date)<dk(a)?x.date:a,it[0].date):'—';
+    h+=`<div class="pal ${Q&&(c.includes(Q.toUpperCase())||it.some(x=>String(x.art).includes(Q)))?'hl':''}" data-p="${c}"><b>${c}</b> <span class="text-xs mut">${it.length} од.</span><div class="text-xs mut">FIFO: ${fifo||'—'}</div><div>`+
+      Object.keys(by).map(a=>`<span class="chip">${a}×${by[a].n}</span>`).join('')+'</div></div>'}
+  $('#v-pal').innerHTML=h+'</div>';
+}
+function tasks(){
+  const gen=tf==='gen',rows=gen?R.tasks:S.itasks;
+  $('#v-tasks').innerHTML=`<div class="flex flex-wrap gap-2 mb-3 noprint"><button class="btn ${gen?'':'btn2'}" data-tf="gen">Автозадачі (${R.tasks.length})</button><button class="btn ${gen?'btn2':''}" data-tf="xl">Задачі з Excel (${S.itasks.length})</button><button class="btn ml-auto" data-print>🖨 Друк усіх задач</button></div>
+  <div class="card overflow-auto max-h-[75vh]" id="printArea"><div class="onlyprint" style="margin-bottom:8px"><h2 style="font-size:16px;font-weight:700">Задачі на переміщення — ${gen?'автозадачі':'з Excel'}</h2><div style="font-size:11px">Дата друку: ${new Date().toLocaleString('uk-UA')} · Всього задач: ${rows.length}</div></div><table class="t"><thead><tr><th>№</th><th>Звідки</th><th>Артикул</th><th>Дата</th><th>Куди</th><th>Тип</th><th>Пріоритет</th><th>Дія</th></tr></thead><tbody>`+
+  rows.map((t,i)=>`<tr class="${Q&&(String(t.art).includes(Q)||String(t.from).includes(Q.toUpperCase())||String(t.to).includes(Q.toUpperCase()))?'bg-blue-500/20':''}"><td>${i+1}</td><td>${t.from}</td><td>${t.art}</td><td>${t.date||''}</td><td>${t.to}</td><td>${t.type}</td><td>${t.pr}</td><td>${gen?`<button class="btn noprint" data-do="${i}">Виконати</button><span class="onlyprint">☐ ПЕРЕНЕСТИ</span>`:(t.act||'')}</td></tr>`).join('')+
+  `</tbody></table>${rows.length?'':'<p class="mut p-3">Задач немає</p>'}</div>`;
+}
+function an(){
+  const risks=Object.entries(R.art).filter(([a,v])=>v.risk),fd=d=>d>=99999999?'—':pad(d%100)+'.'+pad(Math.floor(d/100)%100)+'.'+Math.floor(d/10000);
+  const tb=(h,r)=>`<table class="t"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.map(x=>`<tr>${x.map(y=>`<td>${y}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  $('#v-an').innerHTML=`<div class="grid lg:grid-cols-2 gap-3">
+  <div class="card"><h3 class="font-semibold mb-2">⚠ FIFO ризики (старіший товар у буфері/на палетах, ніж у основних комірках)</h3>${risks.length?tb(['Артикул','Найстаріше в основних','Найстаріше в буфері/палетах'],risks.map(([a,v])=>[a,fd(v.minMain),fd(v.minOther)])):'<p class="mut">Ризиків не виявлено</p>'}</div>
+  <div class="card"><h3 class="font-semibold mb-2">Вільні місця</h3>${tb(['Секція','Всього','Вільно','Вільно в буфері'],CFG.map(c=>{const a=R.cells.filter(x=>x.sec===c.id);return[c.id,a.length,a.filter(x=>!x.items.length).length,a.filter(x=>x.buf&&!x.items.length).length]}))}</div>
+  <div class="card overflow-auto max-h-[60vh]"><h3 class="font-semibold mb-2">Статистика по артикулах</h3>${tb(['Артикул','Основні','Буфер','Палети','Всього','Найстаріша дата'],Object.entries(R.art).sort((a,b)=>a[0]-b[0]).map(([a,v])=>[a,v.main,v.buf,v.pal,v.main+v.buf+v.pal,fd(Math.min(v.minMain,v.minOther))]))}</div>
+  <div class="card overflow-auto max-h-[60vh]"><h3 class="font-semibold mb-2">Журнал операцій</h3>${S.log.length?tb(['Час','Операція'],S.log.slice(0,100).map(l=>[l.t,l.m])):'<p class="mut">Порожньо</p>'}</div></div>`;
+}
+function search(){
+  if(!Q){$('#sinfo').textContent='';return}
+  const n=R.cells.filter(hit).length,p=Object.keys(S.pallets).filter(c=>c.includes(Q.toUpperCase())||S.pallets[c].some(x=>String(x.art).includes(Q))).length;
+  $('#sinfo').textContent=`Знайдено: ${n} комірок, ${p} палет`;
+  document.querySelectorAll('#v-din .cell,#v-strit .cell').forEach(b=>{b.classList.toggle('hl',hit(R.map[b.dataset.c]))});
+}
+// ---- Модальні вікна ----
+const modal=h=>{$('#mbody').innerHTML=h+'<div class="text-right mt-3"><button class="btn" data-close>Закрити</button></div>';$('#modal').style.display='flex'};
+function cellInfo(code){
+  const c=R.map[code],tk=R.tasks.filter(t=>t.from===code||t.to===code);
+  modal(`<h2 class="text-xl font-bold mb-2">${code}</h2><table class="t"><tbody>
+  <tr><td>Склад / секція</td><td>${c.wh} / ${c.sec} (рівень ${c.l}, поз. ${pad(c.p)})</td></tr>
+  <tr><td>Артикул</td><td>${c.items.map(i=>i.art).join(', ')||'— порожньо'}</td></tr>
+  <tr><td>Артикул за планом</td><td>${c.buf?'буфер (будь-який)':c.plan}</td></tr>
+  <tr><td>Дата FIFO</td><td>${c.items.map(i=>i.date||'—').join(', ')||'—'}</td></tr>
+  <tr><td>Статус</td><td><span class="cell ${cls[c.st]}" style="display:inline-block;width:auto;height:auto;padding:.15rem .5rem;font-size:.75rem;cursor:default">${stTxt[c.st]}</span></td></tr></tbody></table>`+
+  (tk.length?'<h4 class="font-semibold mt-3">Задачі</h4>'+tk.map(t=>`<div class="text-sm">${t.type}: ${t.from} → ${t.to} (${t.art}, ${t.date||'—'})</div>`).join(''):''));
+}
+function palInfo(code){
+  const it=S.pallets[code]||[],by={};it.forEach(x=>{const b=by[x.art]||(by[x.art]={n:0,d:[]});b.n++;b.d.push(x.date)});
+  modal(`<h2 class="text-xl font-bold mb-2">Палета ${code}</h2>`+(it.length?`<table class="t"><thead><tr><th>Артикул</th><th>К-сть</th><th>FIFO (найстаріша)</th></tr></thead><tbody>`+
+   Object.keys(by).map(a=>`<tr><td>${a}</td><td>${by[a].n}</td><td>${by[a].d.reduce((m,d)=>dk(d)<dk(m)?d:m)||'—'}</td></tr>`).join('')+`</tbody></table>`:'<p class="mut">Палета порожня</p>'));
+}
+// ---- Виконання задачі ----
+function doTask(i){
+  const t=R.tasks[i];if(t.to==='—'){alert('Немає вільного місця для переміщення');return}
+  const pl=/^P\d+$/.test(t.from),arr=pl?S.pallets[t.from]:S.stock[t.from];
+  const k=arr.findIndex(x=>eq(x.art,t.art)&&x.date===t.date);if(k<0)return;
+  const it=arr.splice(k,1)[0];if(!pl&&!arr.length)delete S.stock[t.from];
+  (S.stock[t.to]=S.stock[t.to]||[]).push(it);
+  log(`${t.type}: ${t.from} → ${t.to}, арт. ${t.art}, ${t.date||'—'}`);save();renderAll();
+}
+// ---- Імпорт Excel ----
+function importXlsx(file){
+  const fr=new FileReader();
+  fr.onload=e=>{try{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const sh=n=>{const k=wb.SheetNames.find(x=>x.trim()===n)||wb.SheetNames.find(x=>x.trim().toLowerCase().startsWith(n.slice(0,6).toLowerCase()));return k?XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:null}):null};
+    const stock={},pallets={};let n=0;
+    (sh('Введення_Даних')||[]).forEach(r=>{if(!r[0]||r[1]==null)return;const c=String(r[0]).trim().toUpperCase(),it={art:String(r[1]).trim(),date:toDate(r[2])};
+      if(/^P\d{1,2}$/.test(c)){const p='P'+pad(c.slice(1));(pallets[p]=pallets[p]||[]).push(it)}else(stock[c]=stock[c]||[]).push(it);n++});
+    let extra=0;
+    ['Схема_Стелажів_DIN','Схема_Стелажів_STRIT'].forEach(name=>{const rows=sh(name);if(!rows)return;
+      rows.forEach((r,i)=>{if(!r[1]||!String(r[1]).startsWith('Позиція'))return;
+        const m=String(((rows[i-1]||[])[1])||'').match(/СЕКЦІЯ\s+([0-9A-Z]+)/);if(!m)return;
+        const ps=[];for(let j=2;!isNaN(parseInt(r[j]));j++)ps.push(parseInt(r[j]));
+        for(let k=1;k<=4;k++){const lr=rows[i+k];if(!lr||!/Рівень/.test(lr[1]))break;const l=parseInt(String(lr[1]).slice(-1));
+          ps.forEach((p,j)=>{const v=lr[2+j];if(v==null||v==='')return;const code=m[1]+l+pad(p)+'A';if(!stock[code]){stock[code]=[{art:String(v),date:null}];extra++}})}})});
+    const it=(sh('Задачі_на_Переміщення')||[]).slice(3).filter(r=>Number.isInteger(r[0])&&r[1]).map(r=>({n:r[0],from:r[1],art:r[2],date:toDate(r[3]),to:r[4],type:r[5]||'',pr:r[6]??'',act:r[7]||''}));
+    S={stock,pallets,itasks:it,log:S.log};
+    log(`Імпорт Excel: ${n} рядків, комірок ${Object.keys(stock).length}, палет ${Object.keys(pallets).length}, задач з Excel ${it.length}${extra?`, додано зі схем ${extra}`:''}`);
+    save();renderAll();
+  }catch(err){alert('Помилка імпорту: '+err.message)}};
+  fr.readAsArrayBuffer(file);
+}
+// ---- Події ----
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-c],[data-p],[data-do],[data-tab],[data-tf],[data-close],[data-dm],[data-print],[data-paste]');
+  if(e.target.id==='modal'||(t&&t.dataset.close!==undefined)){$('#modal').style.display='none';return}
+  if(!t)return;const d=t.dataset;
+  if(d.dm!==undefined)dataWin();
+  else if(d.print!==undefined){tasks();window.print()}
+  else if(d.paste)pasteData(d.paste==='rep');
+  else if(d.c)cellInfo(d.c);else if(d.p)palInfo(d.p);else if(d.do!==undefined)doTask(+d.do);
+  else if(d.tf){tf=d.tf;tasks()}
+  else if(d.tab){document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+    ['dash','din','strit','pal','tasks','an'].forEach(v=>$('#v-'+v).hidden=v!==d.tab);if(d.tab==='dash')dash()}
+});
+$('#q').oninput=e=>{Q=e.target.value.trim();pals();tasks();search()};
+function dataWin(){
+  const nc=Object.keys(S.stock).length,np=Object.values(S.pallets).reduce((a,b)=>a+b.length,0);
+  modal(`<h2 class="text-xl font-bold mb-1">Встановлення даних</h2>
+  <p class="text-sm mut mb-3">Зараз у системі: комірок — ${nc}, одиниць на палетах — ${np}, задач з Excel — ${S.itasks.length}.</p>
+  <h4 class="font-semibold mb-1">1. Файл Excel</h4>
+  <label class="drop" id="drop">Перетягніть сюди XLSX/XLSM або натисніть для вибору<br><span class="text-xs mut">листи: Введення_Даних, Схема_Стелажів_DIN, Схема_Стелажів_STRIT, Задачі_на_Переміщення</span>
+  <input id="fx" type="file" accept=".xlsx,.xlsm,.xls" hidden></label>
+  <h4 class="font-semibold mt-4 mb-1">2. Вставити вручну</h4>
+  <p class="text-xs mut mb-1">Кожен рядок: комірка або палета, артикул, дата (дд.мм.рррр). Роздільник — пробіл, табуляція або «;». Можна копіювати з Excel.</p>
+  <textarea id="paste" rows="6" class="w-full" style="background:var(--card);color:var(--fg);border:1px solid var(--bd);border-radius:.5rem;padding:.5rem;font-family:monospace;font-size:.8rem" placeholder="1Q101A 822813 28.09.2026&#10;P14 822808 21.09.2026"></textarea>
+  <div class="flex gap-2 mt-2"><button class="btn" data-paste="add">Додати / оновити</button><button class="btn red" data-paste="rep">Замінити всі дані</button></div>`);
+  const d=$('#drop');
+  ['dragover','dragenter'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.add('over')}));
+  ['dragleave','drop'].forEach(ev=>d.addEventListener(ev,e=>{e.preventDefault();d.classList.remove('over')}));
+  d.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f){importXlsx(f);$('#modal').style.display='none'}});
+  $('#fx').onchange=e=>{if(e.target.files[0]){importXlsx(e.target.files[0]);$('#modal').style.display='none'}};
+}
+function pasteData(rep){
+  const lines=$('#paste').value.split(/\n/).map(l=>l.trim()).filter(Boolean),stock=rep?{}:S.stock,pallets=rep?{}:S.pallets;let n=0,bad=0;
+  if(!rep)Object.keys(pallets).length;
+  const touched=new Set();
+  lines.forEach(l=>{const p=l.split(/[\t;, ]+/);if(p.length<2||!/^\d+$/.test(p[1])){bad++;return}
+    const c=p[0].toUpperCase(),it={art:p[1],date:toDate(p[2])};
+    if(/^P\d{1,2}$/.test(c)){const k='P'+pad(c.slice(1));if(!rep&&!touched.has(k)){pallets[k]=[];touched.add(k)}(pallets[k]=pallets[k]||[]).push(it)}
+    else{if(!rep&&!touched.has(c)){stock[c]=[];touched.add(c)}(stock[c]=stock[c]||[]).push(it)}n++});
+  if(!n){alert('Не знайдено коректних рядків');return}
+  S.stock=stock;S.pallets=pallets;if(rep)S.itasks=[];
+  log(`Ручне введення (${rep?'заміна':'додавання'}): ${n} рядків${bad?`, пропущено ${bad}`:''}`);save();renderAll();$('#modal').style.display='none';
+}
+$('#fj').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=x=>{try{const o=JSON.parse(x.target.result);if(!o.stock)throw Error('невірний формат');S={stock:o.stock,pallets:o.pallets||{},itasks:o.itasks||[],log:o.log||[]};log('Імпорт JSON');save();renderAll()}catch(er){alert('Помилка: '+er.message)}};r.readAsText(f);e.target.value=''};
+$('#bExp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='wms_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click()};
+$('#bClr').onclick=()=>{if(confirm('Видалити всі дані?')){S={stock:{},pallets:{},itasks:[],log:[]};save();renderAll()}};
+$('#bTh').onclick=()=>{const d=document.documentElement.classList.toggle('dark');localStorage.setItem('wms_theme',d?'d':'l');dash()};
+if(localStorage.getItem('wms_theme')?localStorage.getItem('wms_theme')==='d':matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.classList.add('dark');
+renderAll();
+</script>
+</body>
+</html>
