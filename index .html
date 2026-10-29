@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bader Warehouse Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.4);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-900 to-slate-800">
+
+    <div class="max-w-5xl w-full">
+        <!-- Шапка -->
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 mb-4">
+                Bader IT Hub
+            </h1>
+            <p class="text-slate-400 text-lg">Єдиний портал додатків для управління складом та логістикою</p>
+        </header>
+
+        <!-- Сітка додатків -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Картка 1: Карта складу -->
+            <a href="warehouse-map.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
+                <div class="w-16 h-16 rounded-full bg-blue-900/50 flex items-center justify-center mb-4 group-hover:bg-blue-600/50 transition-colors border border-blue-500/30">
+                    <i class="fas fa-cubes text-2xl text-blue-400 group-hover:text-blue-200"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Карта складу</h2>
+                <p class="text-sm text-slate-400">Візуалізація заповненості складу, пошук артикулів та імпорт з Excel.</p>
+            </a>
+
+            <!-- Картка 2: Розрахунок ЗП -->
+            <a href="salary-calculator.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
+                <div class="w-16 h-16 rounded-full bg-emerald-900/50 flex items-center justify-center mb-4 group-hover:bg-emerald-600/50 transition-colors border border-emerald-500/30">
+                    <i class="fas fa-file-invoice-dollar text-2xl text-emerald-400 group-hover:text-emerald-200"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Розрахунок ЗП</h2>
+                <p class="text-sm text-slate-400">Інтелектуальний калькулятор розрахунку заробітної плати, змін та премій.</p>
+            </a>
+
+            <!-- Картка 3: Логістичний планувальник -->
+            <a href="logistic-planner.html" class="glass-card rounded-2xl p-6 flex flex-col items-center text-center group cursor-pointer block">
+                <div class="w-16 h-16 rounded-full bg-purple-900/50 flex items-center justify-center mb-4 group-hover:bg-purple-600/50 transition-colors border border-purple-500/30">
+                    <i class="fas fa-clipboard-list text-2xl text-purple-400 group-hover:text-purple-200"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white mb-2">Логістичний планувальник</h2>
+                <p class="text-sm text-slate-400">Планувальник комплектації (SAP FIFO), підбір замовлень COOIS та Звіти дефіциту.</p>
+            </a>
+
+        </div>
+    </div>
+
+</body>
+</html>

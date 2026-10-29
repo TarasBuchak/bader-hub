@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Карта заповненості складу</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .highlight-pulse {
+            animation: pulseBorder 1.5s infinite;
+        }
+        @keyframes pulseBorder {
+            0% { box-shadow: 0 0 5px rgba(34, 211, 238, .4); }
+            50% { box-shadow: 0 0 20px rgba(34, 211, 238, .9); }
+            100% { box-shadow: 0 0 5px rgba(34, 211, 238, .4); }
+        }
+
+        /* Потужне використання ширини аркуша та чіткі розриви по 7 рядів */
+        @media print {
+            body { background-color: white; padding: 0; margin: 0; }
+            .no-print { display: none !important; }
+            .page-break { page-break-before: always; break-before: page; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .shadow-sm { box-shadow: none !important; }
+            .tooltip { display: none !important; }
+            .overflow-x-auto { overflow: visible !important; }
+            
+            /* Максимальне заповнення в боки */
+            #mapContainer { zoom: 95%; width: 100% !important; max-width: none !important; }
+            .bg-white.rounded-xl { border: none !important; padding: 0 !important; box-shadow: none !important; }
+            
+            .aisle-block { 
+                page-break-inside: avoid; 
+                break-inside: avoid; 
+                margin-bottom: 12px !important; 
+                width: 100% !important;
+            }
+            .print-break-after { 
+                display: block;
+                page-break-after: always; 
+                break-after: page; 
+                margin: 0; 
+                padding: 0; 
+                border: none; 
+                height: 0; 
+            }
+
+            .print-empty { background-color: #ffffff !important; border: 1px dashed #cbd5e1 !important; color: #e2e8f0 !important; }
+            .print-one { background-color: #f1f5f9 !important; border: 1px solid #64748b !important; color: #334155 !important; }
+            .print-two { background-color: #cbd5e1 !important; border: 1px solid #334155 !important; color: #0f172a !important; }
+            .print-over { background-color: #64748b !important; border: 2px solid #0f172a !important; color: #ffffff !important; font-weight: 900 !important; }
+            .print-nonliquid { background-color: #1e293b !important; border: 2px solid #000000 !important; color: #ffffff !important; font-weight: 900 !important; }
+        }
+
+        @page { size: landscape; margin: 0.2cm; }
+        .print-break-after { display: none; }
+
+        .custom-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans text-slate-800">
+
+    <!-- Верхня панель керування -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg font-bold text-lg">СКЛАД</div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900">Карта заповненості складу</h1>
+                    <p class="text-xs text-slate-500" id="update-time">Оновлено: ніколи</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="Пошук артикулу..." class="pl-3 pr-24 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="searchSKU()" class="absolute right-1 top-1 bottom-1 px-3 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition">Знайти</button>
+                </div>
+                <button onclick="window.print()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-900 transition shadow-sm">
+                    Друк
+                </button>
+                <div class="flex items-center gap-1 border-l pl-3 border-slate-200">
+                    <button onclick="exportBackup()" title="Експортувати у JSON" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">Експорт</button>
+                    <label title="Імпортувати з JSON" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer">
+                        Імпорт <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(event)">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Основний контент -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        
+        <!-- Панель вставки даних з Excel -->
+        <div class="no-print bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6">
+            <h2 class="text-sm font-bold text-slate-700 mb-2">Вставка даних з Excel (Колонки: Локація, Артикул):</h2>
+            <textarea id="dataInput" rows="3" placeholder="Вставте дані сюди (Ctrl+V)..." class="w-full text-xs font-mono p-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 custom-scroll"></textarea>
+            <div class="flex flex-wrap justify-between items-center mt-3 gap-2">
+                <button onclick="confirmAndLoadData()" class="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm">
+                    Завантажити дані
+                </button>
+                <span id="loadStatus" class="text-xs font-medium text-slate-500">Дані не завантажено</span>
+            </div>
+        </div>
+
+        <!-- Повідомлення та розгорнутий звіт -->
+        <div id="messageBox" class="no-print hidden mb-4 p-4 rounded-xl text-sm font-medium border transition-all"></div>
+        <div id="importReport" class="no-print hidden mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1"></div>
+        
+        <!-- Панель результатів пошуку з навігацією -->
+        <div id="searchControls" class="no-print hidden mb-4 p-3 bg-cyan-50 border border-cyan-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div id="searchResults" class="flex flex-wrap gap-2 items-center"></div>
+            <div class="flex items-center gap-2">
+                <button onclick="navigateSearchResult(-1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">◄ Попередня</button>
+                <span id="searchNavInfo" class="text-xs font-medium text-cyan-900">0 / 0</span>
+                <button onclick="navigateSearchResult(1)" class="px-3 py-1 bg-cyan-600 text-white text-xs font-bold rounded shadow hover:bg-cyan-700">Наступна ►</button>
+            </div>
+        </div>
+
+        <!-- Статистика -->
+        <div class="no-print grid grid-cols-2 sm:grid-cols-6 gap-3 mb-6">
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Місткість (місць)</div>
+                <div class="text-lg font-bold text-slate-800" id="stat-capacity">0</div>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Заповнено локацій</div>
+                <div class="text-lg font-bold text-blue-600" id="stat-filled">0</div>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Порожньо локацій</div>
+                <div class="text-lg font-bold text-slate-500" id="stat-empty">0</div>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Всього ящиків</div>
+                <div class="text-lg font-bold text-emerald-600" id="stat-boxes">0</div>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Заповнення місткості</div>
+                <div class="text-lg font-bold text-purple-600" id="stat-percent">0.0%</div>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="text-[11px] text-slate-500 font-medium">Дублікатів у рядках</div>
+                <div class="text-lg font-bold text-amber-600" id="stat-duplicates">0</div>
+            </div>
+        </div>
+
+        <!-- Легенда -->
+        <div class="no-print bg-white rounded-xl border border-slate-200 p-4 mb-6 flex flex-wrap items-center gap-6 text-xs font-medium">
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#e2e8f0] border border-slate-400 inline-block"></span> Порожнє</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#93c5fd] border border-blue-400 inline-block"></span> 1 ящик</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#4ade80] border border-emerald-500 inline-block"></span> 2 ящики (оптимально)</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#facc15] border border-amber-500 inline-block"></span> 3+ перевантаження</div>
+            <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-[#0f766e] border border-teal-800 inline-block"></span> 2+ неліквід (Q/R)</div>
+        </div>
+
+        <!-- Контейнер карти складу -->
+        <div id="mapContainer" class="space-y-8"></div>
+
+    </main>
+
+    <!-- Tooltip для ПК -->
+    <div id="tooltip" class="fixed hidden z-50 bg-slate-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl pointer-events-none max-w-xs"></div>
+
+    <!-- Модальне вікно для мобільних пристроїв -->
+    <div id="mobileModal" class="no-print fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-200">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="modalTitle" class="text-lg font-bold text-slate-900">Локація</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            <div id="modalContent" class="text-sm text-slate-700 space-y-2 mb-6 max-h-60 overflow-y-auto"></div>
+            <button onclick="closeModal()" class="w-full py-2 bg-slate-800 text-white font-semibold rounded-xl text-sm">Закрити</button>
+        </div>
+    </div>
+
+    <script>
+        const TIERS = 4;
+        const MINART = 800000;
+        const MAXART = 5999999;
+        const AISLES = ["R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E"];
+
+        let inventoryData = {};
+        let totalCapacityVal = 0;
+        let currentSearchElements = [];
+        let currentSearchIndex = 0;
+
+        function getMaxPosition(floor, aisle) {
+            if (floor === 1) {
+                if (["Q", "P", "O", "N", "M", "L"].includes(aisle)) return 28;
+                if (["K", "J", "I", "H", "G", "F"].includes(aisle)) return 24;
+                if (aisle === "E") return 20;
+            } else if (floor === 2) {
+                if (["R", "Q", "P", "O", "N", "M"].includes(aisle)) return 24;
+                if (["L", "K", "J", "I", "H", "G", "F", "E"].includes(aisle)) return 20;
+            }
+            return 0;
+        }
+
+        function hasIsland(floor, aisle) {
+            return floor === 2 && ["Q", "P", "O", "N", "M"].includes(aisle);
+        }
+
+        function calcTotalCapacity() {
+            let cap = 0;
+            for (let f = 1; f <= 2; f++) {
+                AISLES.forEach(a => {
+                    let m = getMaxPosition(f, a);
+                    cap += m * TIERS;
+                });
+            }
+            totalCapacityVal = cap;
+            document.getElementById('stat-capacity').innerText = cap;
+        }
+
+        function parseRawLoc(raw) {
+            let s = raw.toUpperCase().trim().replace(/[\s\-\.]/g, '').replace(/\u00A0/g, '');
+            if (s.length < 5) return null;
+            let f = parseInt(s.charAt(0));
+            if (f !== 1 && f !== 2) return null;
+            let a = s.charAt(1);
+            if (!AISLES.includes(a)) return null;
+
+            let lastChar = s.charAt(s.length - 1);
+            if (lastChar >= 'A' && lastChar <= 'Z') {
+                s = s.substring(0, s.length - 1);
+            }
+
+            let nums = s.substring(2);
+            if (nums.length < 2 || nums.length > 3 || isNaN(nums)) return null;
+
+            let t = parseInt(nums.charAt(0));
+            let p = parseInt(nums.substring(1));
+            let maxP = getMaxPosition(f, a);
+            if (t < 1 || t > TIERS || maxP === 0 || p < 1 || p > maxP) return null;
+
+            return { floor: f, aisle: a, tier: t, position: p, key: `${f}|${a}|${t}|${p < 10 ? '0' + p : p}` };
+        }
+
+        function confirmAndLoadData() {
+            const currentText = document.getElementById('dataInput').value.trim();
+            if (Object.keys(inventoryData).length > 0 && currentText) {
+                if (!confirm("Наявні дані будуть замінені новими. Бажаєте продовжити?")) {
+                    return;
+                }
+            }
+            loadDataFromTextarea();
+        }
+
+        function loadDataFromTextarea() {
+            const text = document.getElementById('dataInput').value;
+            const lines = text.split('\n');
+            inventoryData = {};
+            
+            let successRows = 0;
+            let formatErrors = 0;
+            let outOfRangeArt = 0;
+            let invalidLocs = 0;
+            let duplicateRows = 0;
+            let totalBoxes = 0;
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                let parts = line.split('\t');
+                if (parts.length < 2) {
+                    parts = line.trim().split(/\s+/);
+                }
+
+                if (parts.length >= 2) {
+                    const locStr = parts[0].trim();
+                    const artStr = parts[1].trim();
+                    
+                    if (!artStr || isNaN(artStr)) {
+                        formatErrors++;
+                        return;
+                    }
+                    let artNum = parseFloat(artStr);
+                    if (artNum < MINART || artNum > MAXART) {
+                        outOfRangeArt++;
+                        return;
+                    }
+
+                    let parsed = parseRawLoc(locStr);
+                    if (parsed) {
+                        let k = parsed.key;
+                        if (!inventoryData[k]) {
+                            inventoryData[k] = { qty: 0, skus: [], originalLoc: locStr.toUpperCase(), floor: parsed.floor, aisle: parsed.aisle, tier: parsed.tier, pos: parsed.position };
+                        } else {
+                            duplicateRows++;
+                        }
+                        inventoryData[k].qty++;
+                        totalBoxes++;
+                        inventoryData[k].skus.push(artStr);
+                        successRows++;
+                    } else {
+                        invalidLocs++;
+                    }
+                } else {
+                    formatErrors++;
+                }
+            });
+
+            localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
+            localStorage.setItem('warehousePaste', document.getElementById('dataInput').value);
+            localStorage.setItem('warehouseTimestamp', new Date().toISOString());
+
+            renderMap();
+            let filledCount = Object.keys(inventoryData).length;
+            updateDashboard(filledCount, totalBoxes, duplicateRows);
+            
+            const now = new Date();
+            document.getElementById('update-time').innerText = `Оновлено: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+            document.getElementById('loadStatus').innerText = `Імпорт завершено успішно.`;
+
+            const reportDiv = document.getElementById('importReport');
+            reportDiv.classList.remove('hidden');
+            reportDiv.innerHTML = `
+                <div class="font-bold text-slate-700 mb-1">Звіт імпорту даних:</div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-slate-600">
+                    <div>✅ Успішно: <span class="font-bold text-emerald-600">${successRows}</span></div>
+                    <div>⚠️ Помилок формату: <span class="font-bold text-amber-600">${formatErrors}</span></div>
+                    <div>🚫 Поза діапазоном: <span class="font-bold text-orange-600">${outOfRangeArt}</span></div>
+                    <div>❌ Невірні локації: <span class="font-bold text-red-600">${invalidLocs}</span></div>
+                    <div>📋 Дублікатів у комірках: <span class="font-bold text-blue-600">${duplicateRows}</span></div>
+                </div>
+            `;
+        }
+
+        function updateDashboard(filledCount, totalBoxes, duplicateRows = 0) {
+            document.getElementById('stat-filled').innerText = filledCount;
+            let emptyCount = totalCapacityVal - filledCount;
+            document.getElementById('stat-empty').innerText = emptyCount >= 0 ? emptyCount : 0;
+            document.getElementById('stat-boxes').innerText = totalBoxes;
+            document.getElementById('stat-duplicates').innerText = duplicateRows;
+            let pct = totalCapacityVal > 0 ? (filledCount / totalCapacityVal) * 100 : 0;
+            document.getElementById('stat-percent').innerText = pct.toFixed(1) + '%';
+        }
+
+        function renderMap() {
+            const container = document.getElementById('mapContainer');
+            container.innerHTML = '';
+
+            let globalAisleCount = 0;
+
+            for (let floor = 1; floor <= 2; floor++) {
+                const floorSection = document.createElement('div');
+                floorSection.className = 'bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-hidden';
+                if (floor === 2) floorSection.classList.add('page-break');
+
+                const floorHeader = document.createElement('h2');
+                floorHeader.className = 'text-xl font-bold text-blue-900 mb-4 pb-2 border-b border-slate-200 uppercase';
+                floorHeader.innerText = `${floor} поверх`;
+                floorSection.appendChild(floorHeader);
+
+                const aisleContainer = document.createElement('div');
+                aisleContainer.className = 'space-y-4 overflow-x-auto custom-scroll pb-2';
+
+                AISLES.forEach(aisle => {
+                    let maxPos = getMaxPosition(floor, aisle);
+                    if (maxPos === 0) return;
+
+                    globalAisleCount++;
+                    let island = hasIsland(floor, aisle);
+
+                    const aisleBlock = document.createElement('div');
+                    aisleBlock.className = 'aisle-block flex items-stretch border border-slate-300 rounded-lg bg-slate-50 p-2 w-full';
+
+                    const labelLeft = document.createElement('div');
+                    labelLeft.className = 'w-10 flex items-center justify-center font-bold text-lg text-slate-700 bg-slate-200 rounded mr-3 select-none';
+                    labelLeft.innerText = aisle;
+                    aisleBlock.appendChild(labelLeft);
+
+                    const rowsWrapper = document.createElement('div');
+                    rowsWrapper.className = 'flex flex-col gap-1 w-full';
+
+                    const headerRow = document.createElement('div');
+                    headerRow.className = 'flex gap-1';
+                    for (let p = 1; p <= maxPos; p++) {
+                        const hCell = document.createElement('div');
+                        hCell.className = 'w-7 h-5 flex items-center justify-center text-[10px] font-bold text-slate-500 bg-slate-200 rounded';
+                        hCell.innerText = p < 10 ? '0' + p : p;
+                        if (island && p === 4) hCell.classList.add('mr-6');
+                        headerRow.appendChild(hCell);
+                    }
+                    rowsWrapper.appendChild(headerRow);
+
+                    for (let tier = TIERS; tier >= 1; tier--) {
+                        const tierRow = document.createElement('div');
+                        tierRow.className = 'flex gap-1 items-center';
+
+                        for (let pos = 1; pos <= maxPos; pos++) {
+                            let key = `${floor}|${aisle}|${tier}|${pos < 10 ? '0' + pos : pos}`;
+                            let cellData = inventoryData[key];
+                            let qty = cellData ? cellData.qty : 0;
+                            let skus = cellData ? cellData.skus.join(', ') : '';
+                            let origLoc = cellData ? cellData.originalLoc : `${floor}${aisle}${tier}${pos < 10 ? '0' + pos : pos}A`;
+
+                            let nonLiquid = (floor === 2 && (aisle === 'Q' || aisle === 'R'));
+
+                            const cell = document.createElement('div');
+                            cell.className = 'w-7 h-7 flex items-center justify-center text-xs font-bold rounded transition cursor-pointer border select-none';
+                            cell.dataset.loc = origLoc;
+                            cell.dataset.qty = qty;
+                            cell.dataset.skus = skus;
+                            cell.dataset.floor = floor;
+                            cell.dataset.aisle = aisle;
+                            cell.dataset.tier = tier;
+
+                            if (island && pos === 4) cell.classList.add('mr-6');
+
+                            if (qty === 0) {
+                                cell.classList.add('bg-[#e2e8f0]', 'text-slate-400', 'border-slate-300', 'print-empty');
+                                cell.innerText = '';
+                            } else if (qty === 1) {
+                                cell.classList.add('bg-[#93c5fd]', 'text-blue-950', 'border-blue-300', 'print-one');
+                                cell.innerText = '1';
+                            } else if (qty === 2) {
+                                if (nonLiquid) {
+                                    cell.classList.add('bg-[#0f766e]', 'text-white', 'border-teal-900', 'print-nonliquid');
+                                } else {
+                                    cell.classList.add('bg-[#4ade80]', 'text-emerald-950', 'border-emerald-400', 'print-two');
+                                }
+                                cell.innerText = '2';
+                            } else {
+                                if (nonLiquid) {
+                                    cell.classList.add('bg-[#0f766e]', 'text-white', 'border-teal-900', 'print-nonliquid');
+                                } else {
+                                    cell.classList.add('bg-[#facc15]', 'text-amber-950', 'border-amber-500', 'print-over');
+                                }
+                                cell.innerText = qty;
+                            }
+
+                            cell.addEventListener('click', () => {
+                                showMobileModal(origLoc, qty, skus);
+                            });
+
+                            tierRow.appendChild(cell);
+                        }
+
+                        const tierLabel = document.createElement('div');
+                        tierLabel.className = 'ml-2 text-[10px] text-slate-500 font-semibold w-10 select-none';
+                        tierLabel.innerText = `Ярус ${tier}`;
+                        tierRow.appendChild(tierLabel);
+
+                        rowsWrapper.appendChild(tierRow);
+                    }
+
+                    aisleBlock.appendChild(rowsWrapper);
+                    aisleContainer.appendChild(aisleBlock);
+
+                    // Розрив сторінки рівно кожні 7 рядів
+                    if (globalAisleCount % 7 === 0) {
+                        const breakDiv = document.createElement('div');
+                        breakDiv.className = 'print-break-after';
+                        aisleContainer.appendChild(breakDiv);
+                    }
+                });
+
+                floorSection.appendChild(aisleContainer);
+                container.appendChild(floorSection);
+            }
+        }
+
+        // Tooltip для ПК
+        const mapContainer = document.getElementById('mapContainer');
+        const tooltip = document.getElementById('tooltip');
+
+        mapContainer.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('[data-loc]');
+            if (!cell || window.innerWidth < 768) return;
+            let loc = cell.dataset.loc;
+            let qty = cell.dataset.qty;
+            let skus = cell.dataset.skus;
+
+            let html = `<strong>Локація: ${loc}</strong><br>Кількість: ${qty}`;
+            if (skus) {
+                if (skus.length > 120) skus = skus.substring(0, 120) + '…';
+                html += `<br>Артикули: ${skus}`;
+            }
+            tooltip.innerHTML = html;
+            tooltip.classList.remove('hidden');
+        });
+
+        mapContainer.addEventListener('mousemove', (e) => {
+            if (tooltip.classList.contains('hidden')) return;
+            tooltip.style.left = (e.clientX + 12) + 'px';
+            tooltip.style.top = (e.clientY + 12) + 'px';
+        });
+
+        mapContainer.addEventListener('mouseout', (e) => {
+            if (e.target.closest('[data-loc]')) {
+                tooltip.classList.add('hidden');
+            }
+        });
+
+        // Модальне вікно для мобільних
+        function showMobileModal(loc, qty, skus) {
+            if (window.innerWidth >= 768) return;
+            document.getElementById('modalTitle').innerText = `Локація: ${loc}`;
+            let content = `<div><strong>Кількість ящиків:</strong> ${qty}</div>`;
+            if (skus) {
+                content += `<div><strong>Артикули:</strong><br><span class="font-mono text-xs bg-slate-100 p-1 rounded block mt-1">${skus.split(', ').join('<br>')}</span></div>`;
+            } else {
+                content += `<div class="text-slate-400">Порожньо</div>`;
+            }
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('mobileModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('mobileModal').classList.add('hidden');
+        }
+
+        function searchSKU() {
+            const input = document.getElementById('searchInput').value.trim();
+            clearHighlights();
+            if (!input) return;
+
+            let matchedCells = [];
+            const cells = document.querySelectorAll('[data-skus]');
+            cells.forEach(cell => {
+                const skus = cell.dataset.skus;
+                if (skus) {
+                    const skuList = skus.split(',').map(x => x.trim());
+                    if (skuList.includes(input)) {
+                        matchedCells.push(cell);
+                    }
+                }
+            });
+
+            matchedCells.sort((a, b) => {
+                if (a.dataset.floor !== b.dataset.floor) return a.dataset.floor - b.dataset.floor;
+                if (a.dataset.aisle !== b.dataset.aisle) return b.dataset.aisle.localeCompare(a.dataset.aisle);
+                return b.dataset.tier - a.dataset.tier;
+            });
+
+            currentSearchElements = matchedCells;
+            currentSearchIndex = 0;
+
+            if (matchedCells.length > 0) {
+                showMessage(`Знайдено ${matchedCells.length} локацій для артикулу ${input}`, 'success');
+                document.getElementById('searchControls').classList.remove('hidden');
+                
+                matchedCells.forEach(cell => {
+                    cell.classList.add('ring-4', 'ring-cyan-400', 'scale-125', 'z-20', 'highlight-pulse');
+                });
+
+                updateSearchNavigation();
+                scrollToCurrentSearch();
+            } else {
+                showMessage(`Артикул "${input}" не знайдено на складі.`, 'error');
+                document.getElementById('searchControls').classList.add('hidden');
+            }
+        }
+
+        function updateSearchNavigation() {
+            if (currentSearchElements.length === 0) return;
+            const el = currentSearchElements[currentSearchIndex];
+            document.getElementById('searchNavInfo').innerText = `${currentSearchIndex + 1} з ${currentSearchElements.length} (Локація: ${el.dataset.loc}, Ящиків: ${el.dataset.qty})`;
+        }
+
+        function scrollToCurrentSearch() {
+            if (currentSearchElements.length === 0) return;
+            const el = currentSearchElements[currentSearchIndex];
+            el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            el.animate([
+                { transform: 'scale(1)' },
+                { transform: 'scale(1.6)' },
+                { transform: 'scale(1)' }
+            ], { duration: 1000 });
+        }
+
+        function navigateSearchResult(direction) {
+            if (currentSearchElements.length === 0) return;
+            currentSearchIndex += direction;
+            if (currentSearchIndex >= currentSearchElements.length) currentSearchIndex = 0;
+            if (currentSearchIndex < 0) currentSearchIndex = currentSearchElements.length - 1;
+            updateSearchNavigation();
+            scrollToCurrentSearch();
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.highlight-pulse').forEach(el => {
+                el.classList.remove('ring-4', 'ring-cyan-400', 'scale-125', 'z-20', 'highlight-pulse');
+            });
+            document.getElementById('searchControls').classList.add('hidden');
+            currentSearchElements = [];
+        }
+
+        let messageTimer;
+        function showMessage(text, type) {
+            clearTimeout(messageTimer);
+            const box = document.getElementById('messageBox');
+            box.innerText = text;
+            box.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'border-emerald-200', 'bg-red-50', 'text-red-800', 'border-red-200');
+            
+            if (type === 'success') {
+                box.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+            } else {
+                box.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+            }
+
+            messageTimer = setTimeout(() => {
+                box.classList.add('hidden');
+            }, 6000);
+        }
+
+        function exportBackup() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                textarea: document.getElementById('dataInput').value,
+                inventory: inventoryData
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `warehouse_backup_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (parsed.inventory && parsed.textarea) {
+                        if (confirm("Завантажити резервну копію? Поточні дані буде заміщено.")) {
+                            inventoryData = parsed.inventory;
+                            document.getElementById('dataInput').value = parsed.textarea;
+                            localStorage.setItem('warehouseData', JSON.stringify(inventoryData));
+                            localStorage.setItem('warehousePaste', parsed.textarea);
+                            
+                            renderMap();
+                            let filled = Object.keys(inventoryData).length;
+                            let boxes = 0;
+                            Object.values(inventoryData).forEach(i => boxes += i.qty);
+                            updateDashboard(filled, boxes);
+                            showMessage("Резервну копію успішно відновлено!", "success");
+                        }
+                    } else {
+                        alert("Невірний формат файлу резервної копії.");
+                    }
+                } catch (err) {
+                    alert("Помилка читання JSON файлу.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearHighlights();
+            const val = document.getElementById('searchInput').value.trim();
+            if (val.length >= 6) {
+                searchSKU();
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchSKU();
+        });
+
+        document.getElementById('dataInput').addEventListener('paste', () => {
+            setTimeout(loadDataFromTextarea, 150);
+        });
+
+        window.onload = function() {
+            calcTotalCapacity();
+            const saved = localStorage.getItem('warehouseData');
+            const paste = localStorage.getItem('warehousePaste');
+            const ts = localStorage.getItem('warehouseTimestamp');
+            
+            if (saved) {
+                inventoryData = JSON.parse(saved);
+                if (paste) document.getElementById('dataInput').value = paste;
+                if (ts) {
+                    const d = new Date(ts);
+                    document.getElementById('update-time').innerText = `Збережено: ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+                }
+                let filledCount = Object.keys(inventoryData).length;
+                let totalBoxes = 0;
+                Object.values(inventoryData).forEach(item => { totalBoxes += item.qty; });
+                renderMap();
+                updateDashboard(filledCount, totalBoxes);
+            } else {
+                renderMap();
+                updateDashboard(0, 0);
+            }
+        };
+    </script>
+</body>
+</html>
