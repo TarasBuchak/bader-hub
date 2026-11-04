@@ -204,7 +204,7 @@
                 </div>
                 <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
                     <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-wider">Вставити Дані</div>
-                    <button onclick="document.getElementById('dataInputArea').classList.toggle('hidden')" class="mt-1 w-full py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded font-semibold dark:text-white transition">Відкрити Excel ▼</button>
+                    <button onclick="document.getElementById('dataInputArea').classList.toggle('hidden')" class="mt-1 w-full py-1 text-xs bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded font-semibold dark:text-white transition">Відкрити виявлення ▼</button>
                 </div>
             </div>
 
@@ -276,7 +276,7 @@
         <!-- Data Input Area -->
         <div id="dataInputArea" class="no-print hidden bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 mb-6 transition-all">
             <div class="flex justify-between items-center mb-2">
-                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200">Вставка даних з Excel (Колонки: Локація, Артикул):</h2>
+                <h2 class="text-sm font-bold text-slate-700 dark:text-slate-200">Вставка даних з ZEBWM (Колонки: Локація, Артикул):</h2>
                 <button onclick="document.getElementById('dataInputArea').classList.add('hidden')" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">✖</button>
             </div>
             <textarea id="dataInput" rows="3" placeholder="Вставте дані сюди (Ctrl+V)..." class="w-full text-xs font-mono p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-slate-300 custom-scroll"></textarea>
@@ -443,14 +443,14 @@
                 if (["K", "J", "I", "H", "G", "F"].includes(aisle)) return 24;
                 if (aisle === "E") return 20;
             } else if (floor === 2) {
-                if (["R", "Q", "P", "O", "N", "M"].includes(aisle)) return 24;
-                if (["L", "K", "J", "I", "H", "G", "F", "E"].includes(aisle)) return 20;
+                if (["R", "Q", "P", "O", "N", "L", "M"].includes(aisle)) return 24;
+                if ([ "K", "J", "I", "H", "G", "F", "E"].includes(aisle)) return 20;
             }
             return 0;
         }
 
         function hasIsland(floor, aisle) {
-            return floor === 2 && ["Q", "P", "O", "N", "M"].includes(aisle);
+            return floor === 2 && ["Q", "P", "O", "N", "M", "L"].includes(aisle);
         }
 
         function calcTotalCapacity() {
